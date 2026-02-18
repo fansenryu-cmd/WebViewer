@@ -2,9 +2,9 @@
  * 투데이 리포트 — 풍부한 데이터 표시
  * - 플랫폼별 TOP 10 랭킹 (조회수 포함)
  * - 소설별 최신 조회수, 전날 대비 증감, 연독률
- * - 일간/주간/월간 성장률
+ * - 일간/주간/월간 성장률 (수치별/%별 정렬 토글)
  */
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDb } from '../context/DbContext';
 import { getTodayReport } from '../services/reportService';
@@ -102,13 +102,15 @@ export function TodayReportPage() {
         )}
       </section>
 
-      {/* 일간/주간/월간 Surge */}
+      {/* 일간/주간/월간 Surge (수치별/%별 정렬 선택 가능) */}
       <SurgeSection title="📈 일간 급상승" subtitle="전일 대비 조회수 증가" data={report.surge_daily} mode="daily" />
       <SurgeSection title="📊 주간 급상승" subtitle="주간 조회수 증가" data={report.surge_weekly} mode="weekly" />
       <SurgeSection title="📉 월간 급상승" subtitle="월간 조회수 증가" data={report.surge_monthly} mode="monthly" />
     </div>
   );
 }
+
+type SurgeSortMode = 'percent' | 'value';
 
 function SurgeSection({
   title,
@@ -121,12 +123,42 @@ function SurgeSection({
   data: Record<string, SurgeItem[]>;
   mode: 'daily' | 'weekly' | 'monthly';
 }) {
+  const [sortMode, setSortMode] = useState<SurgeSortMode>('percent');
   const platforms = Object.keys(data).filter((p) => data[p]?.length > 0);
   if (platforms.length === 0) return null;
 
+  const getSortedList = (list: SurgeItem[]) => {
+    const copy = [...list];
+    if (sortMode === 'percent') {
+      copy.sort((a, b) => (b.surge_rate ?? 0) - (a.surge_rate ?? 0));
+    } else {
+      copy.sort((a, b) => (b.surge ?? 0) - (a.surge ?? 0));
+    }
+    return copy.slice(0, 10);
+  };
+
   return (
     <section className="mb-10">
-      <h2 className="text-xl font-semibold text-gray-800 mb-0">{title}</h2>
+      <div className="flex items-center justify-between gap-4 mb-1">
+        <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-gray-500">정렬:</span>
+          <button
+            type="button"
+            onClick={() => setSortMode('percent')}
+            className={`px-2 py-1 rounded ${sortMode === 'percent' ? 'bg-green-100 text-green-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+          >
+            증가율(%)
+          </button>
+          <button
+            type="button"
+            onClick={() => setSortMode('value')}
+            className={`px-2 py-1 rounded ${sortMode === 'value' ? 'bg-green-100 text-green-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+          >
+            수치별
+          </button>
+        </div>
+      </div>
       <p className="text-sm text-gray-500 mb-4">{subtitle}</p>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {platforms.map((platform) => (
@@ -142,7 +174,7 @@ function SurgeSection({
                 </tr>
               </thead>
               <tbody>
-                {data[platform]?.slice(0, 10).map((item, i) => {
+                {getSortedList(data[platform] ?? []).map((item, i) => {
                   const prevViews = mode === 'daily' ? item.yesterday_views
                     : mode === 'weekly' ? item.last_week_views
                     : item.last_month_views;

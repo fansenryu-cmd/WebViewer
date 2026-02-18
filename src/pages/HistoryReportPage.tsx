@@ -34,12 +34,22 @@ export function HistoryReportPage() {
         <select
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[200px]"
+          aria-label="날짜 선택"
         >
-          {dates.map((d) => (
-            <option key={d} value={d}>{d}</option>
-          ))}
+          {dates.length === 0 ? (
+            <option value="">— 랭킹 데이터 없음 (데스크톱에서 수집 후 DB 재로드) —</option>
+          ) : (
+            dates.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))
+          )}
         </select>
+        {dates.length === 0 && (
+          <p className="mt-2 text-sm text-amber-600">
+            daily_rankings 테이블에 랭킹 데이터가 없습니다. NovelForge 데스크톱에서 &quot;플랫폼 일간 조회수 수집&quot; 또는 랭킹 수집을 실행한 뒤, 동일 DB 파일을 다시 불러와 주세요.
+          </p>
+        )}
       </div>
 
       {report && (
