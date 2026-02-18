@@ -16,6 +16,32 @@ import {
 import { useDb } from '../context/DbContext';
 import { getAggregateStats } from '../services/aggregateStatsService';
 import { getAllNovels } from '../db/queries';
+import type { ManagementNovel } from '../db/types';
+
+/** 플랫폼별 그룹 후, 플랫폼 순서 고정 + 소설 제목 가나다순 */
+const PLATFORM_ORDER = ['네이버시리즈', '카카오페이지', '문피아', '리디북스', '리디', '노벨피아'];
+function novelsGroupedAndSorted(novels: ManagementNovel[]): ManagementNovel[] {
+  const byPlatform: Record<string, ManagementNovel[]> = {};
+  for (const p of PLATFORM_ORDER) byPlatform[p] = [];
+  for (const n of novels) {
+    const key = (n.platform?.trim() || '미지정');
+    if (!byPlatform[key]) byPlatform[key] = [];
+    byPlatform[key].push(n);
+  }
+  const out: ManagementNovel[] = [];
+  for (const p of PLATFORM_ORDER) {
+    const list = byPlatform[p] ?? [];
+    list.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '', 'ko'));
+    out.push(...list);
+  }
+  for (const key of Object.keys(byPlatform)) {
+    if (PLATFORM_ORDER.includes(key)) continue;
+    const list = byPlatform[key];
+    list.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '', 'ko'));
+    out.push(...list);
+  }
+  return out;
+}
 
 const COLORS = {
   top20: '#059669',
@@ -29,7 +55,10 @@ export function AggregateStatsPage() {
   const { db } = useDb();
   const [selectedNovelId, setSelectedNovelId] = useState<number | null>(null);
 
-  const novels = useMemo(() => (db ? getAllNovels(db) : []), [db]);
+  const novels = useMemo(() => {
+    if (!db) return [];
+    return novelsGroupedAndSorted(getAllNovels(db));
+  }, [db]);
   const agg = useMemo(() => {
     if (!db) return null;
     return getAggregateStats(db, selectedNovelId ?? undefined);
@@ -101,7 +130,9 @@ export function AggregateStatsPage() {
   );
 }
 
-/** 5-tier + myNovel 시리즈를 하나의 chartData로 병합. 0일 0조회수 기준 */
+const CHART_KEYS = ['top20', 'top40', 'top60', 'top80', 'myNovel'] as const;
+
+/** 5-tier + myNovel 시리즈를 하나의 chartData로 병합. 0일 0조회수, 빈 구간은 전일 값 유지로 완전 시계열 */
 function mergeSeries(data: import('../services/aggregateStatsService').PlatformAggregateData) {
   const byDay: Record<number, Record<string, number>> = {};
   const add = (key: string, pts: Array<{ daysSinceLaunch: number; cumulativeViews: number }>) => {
@@ -116,15 +147,26 @@ function mergeSeries(data: import('../services/aggregateStatsService').PlatformA
   add('top80', data.top80);
   if (data.myNovel?.length) add('myNovel', data.myNovel);
 
-  const days = Object.keys(byDay)
-    .map(Number)
-    .sort((a, b) => a - b);
-  const chartData = days.map((d) => ({ daysSinceLaunch: d, ...byDay[d] }));
+  const days = Object.keys(byDay).map(Number).sort((a, b) => a - b);
+  if (days.length === 0) return [];
 
-  // 0일이 없으면 0부터 시작하도록 추가
-  if (chartData.length > 0 && chartData[0].daysSinceLaunch !== 0) {
-    const zeroRow = { daysSinceLaunch: 0, top20: 0, top40: 0, top60: 0, top80: 0, myNovel: 0 };
-    chartData.unshift(zeroRow);
+  const minDay = Math.min(0, ...days);
+  const maxDay = Math.max(...days);
+  const chartData: Array<Record<string, number>> = [];
+  const prev: Record<string, number> = { top20: 0, top40: 0, top60: 0, top80: 0, myNovel: 0 };
+
+  for (let d = minDay; d <= maxDay; d++) {
+    const row: Record<string, number> = { daysSinceLaunch: d };
+    for (const k of CHART_KEYS) {
+      if (d in byDay && byDay[d][k] != null) {
+        const v = byDay[d][k];
+        prev[k] = v;
+        row[k] = v;
+      } else {
+        row[k] = prev[k];
+      }
+    }
+    chartData.push(row);
   }
   return chartData;
 }
