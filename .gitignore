@@ -1,0 +1,18 @@
+# Dependencies
+node_modules
+
+# Build
+dist
+dist-ssr
+
+# IDE / OS
+.vite
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+
+# Env (API 키 등은 브라우저 localStorage 사용)
+.env
+.env.local
+.env.*.local
+commit_msg.txt
