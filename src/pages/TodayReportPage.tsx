@@ -21,10 +21,10 @@ function formatViews(views: number | null | undefined): string {
 const PLATFORM_COLORS: Record<string, string> = {
   '네이버시리즈': 'border-l-4 border-l-green-500',
   '카카오페이지': 'border-l-4 border-l-yellow-500',
-  '문피아': 'border-l-4 border-l-blue-500',
-  '문피아(무료)': 'border-l-4 border-l-blue-400',
-  '문피아(유료)': 'border-l-4 border-l-blue-600',
-  '리디': 'border-l-4 border-l-purple-500',
+  '문피아': 'border-l-4 border-l-purple-500',
+  '문피아(무료)': 'border-l-4 border-l-purple-400',
+  '문피아(유료)': 'border-l-4 border-l-fuchsia-500',
+  '리디': 'border-l-4 border-l-blue-500',
   '노벨피아': 'border-l-4 border-l-orange-500',
 };
 
@@ -69,7 +69,9 @@ export function TodayReportPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {platforms.map((platform) => (
               <div key={platform} className={`bg-white rounded-xl shadow-sm p-4 ${PLATFORM_COLORS[platform] || 'border-l-4 border-l-gray-300'}`}>
-                <h3 className="text-base font-semibold text-gray-800 mb-3">{platform}</h3>
+                <h3 className="text-base font-semibold text-gray-800 mb-3">
+                  {platform.includes('(무료)') ? '📗 ' : platform.includes('(유료)') ? '📕 ' : ''}{platform}
+                </h3>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-gray-500 border-b">

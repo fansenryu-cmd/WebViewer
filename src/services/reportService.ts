@@ -6,6 +6,7 @@ import {
   getAllNovels,
   getLatestStats,
   getRankingsByDateAndPlatform,
+  getRankingsByDatePlatformType,
   getStatBeforeDate,
   getNovelsByPlatform,
   getLatestRankingDate,
@@ -16,8 +17,9 @@ import type { ManagementNovel, DailyStatistics } from '../db/types';
 
 const SURGE_PLATFORMS = ['네이버시리즈', '카카오페이지', '문피아', '노벨피아'];
 // 백엔드 reports.py 및 daily_rankings 테이블의 platform 값과 동일하게 유지
-const RANKING_DISPLAY_PLATFORMS = ['네이버시리즈', '카카오페이지', '문피아', '리디', '노벨피아'];
-const RANKING_COMPARE_PLATFORMS = ['문피아', '리디', '노벨피아'];
+// 문피아는 무료/유료 분리 표시 (ranking_type으로 구분)
+const RANKING_DISPLAY_PLATFORMS = ['네이버시리즈', '카카오페이지', '문피아(무료)', '문피아(유료)', '리디', '노벨피아'];
+const RANKING_COMPARE_PLATFORMS = ['문피아(무료)', '문피아(유료)', '리디', '노벨피아'];
 
 export interface SurgeItem {
   novel_id: number;
@@ -128,9 +130,10 @@ function buildSurgeWeekly(db: Database, targetDateStr: string): Record<string, S
   for (const platform of SURGE_PLATFORMS) {
     const list: SurgeItem[] = [];
     for (const novel of byPlatform[platform] || []) {
+      // 최신 데이터 사용 (오늘 데이터 없어도 가장 최근 데이터로 대체)
       const thisWeekStat = getLatestStats(db, novel.id, 1)[0];
-      if (!thisWeekStat || thisWeekStat.date !== targetDateStr) continue;
-      const lastWeekStat = getStatBeforeDate(db, novel.id, targetDateStr, 7, 31);
+      if (!thisWeekStat) continue;
+      const lastWeekStat = getStatBeforeDate(db, novel.id, thisWeekStat.date, 7, 31);
       if (!lastWeekStat) continue;
       const lw = lastWeekStat.views ?? 0;
       const tw = thisWeekStat.views ?? 0;
@@ -156,7 +159,6 @@ function buildSurgeWeekly(db: Database, targetDateStr: string): Record<string, S
 function buildSurgeMonthly(db: Database, targetDateStr: string): Record<string, SurgeItem[]> {
   const target = new Date(targetDateStr + 'T12:00:00');
   const lastMonthEnd = getLastMonthEnd(target);
-  const lmStr = toDateStr(lastMonthEnd);
   const result: Record<string, SurgeItem[]> = {};
   const novels = getAllNovels(db);
   const byPlatform: Record<string, ManagementNovel[]> = {};
@@ -170,9 +172,22 @@ function buildSurgeMonthly(db: Database, targetDateStr: string): Record<string, 
     const list: SurgeItem[] = [];
     for (const novel of byPlatform[platform] || []) {
       const thisStats = getLatestStats(db, novel.id, 100);
-      const thisMonthStat = thisStats.find((s) => s.date === targetDateStr);
-      const lastMonthStat = thisStats.find((s) => s.date === lmStr);
-      if (!thisMonthStat || !lastMonthStat) continue;
+      if (thisStats.length === 0) continue;
+      // 최신 데이터 사용 (오늘 데이터 없어도 가장 최근 데이터로 대체)
+      const thisMonthStat = thisStats[0];
+      // 지난 달 말 기준 데이터 (7일 범위 내 폴백)
+      let lastMonthStat: DailyStatistics | null = null;
+      for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+        const candidate = new Date(lastMonthEnd);
+        candidate.setDate(candidate.getDate() - dayOffset);
+        const candidateStr = toDateStr(candidate);
+        const found = thisStats.find((s) => s.date === candidateStr);
+        if (found) {
+          lastMonthStat = found;
+          break;
+        }
+      }
+      if (!lastMonthStat) continue;
       const lm = lastMonthStat.views ?? 0;
       const tm = thisMonthStat.views ?? 0;
       if (tm <= lm) continue;
@@ -194,6 +209,12 @@ function buildSurgeMonthly(db: Database, targetDateStr: string): Record<string, 
   return result;
 }
 
+// 문피아 무료/유료 → DB platform 이름 + ranking_type 매핑
+const MUNPIA_SPLIT: Record<string, { dbPlatform: string; rankingType: string }> = {
+  '문피아(무료)': { dbPlatform: '문피아', rankingType: 'free' },
+  '문피아(유료)': { dbPlatform: '문피아', rankingType: 'paid' },
+};
+
 function buildPlatformRankings(db: Database, dateStr: string): Record<string, RankingInfo[]> {
   const result: Record<string, RankingInfo[]> = {};
   // 고정 플랫폼 먼저, 없으면 해당 날짜에 실제 있는 플랫폼으로 채움
@@ -202,7 +223,14 @@ function buildPlatformRankings(db: Database, dateStr: string): Record<string, Ra
     ? [...new Set([...RANKING_DISPLAY_PLATFORMS, ...platformsInDb])]
     : platformsInDb;
   for (const platform of platformsToQuery) {
-    const rows = getRankingsByDateAndPlatform(db, dateStr, platform, 10);
+    let rows;
+    // 문피아(무료)/문피아(유료)는 DB에서 platform='문피아' + ranking_type으로 분리
+    if (MUNPIA_SPLIT[platform]) {
+      const { dbPlatform, rankingType } = MUNPIA_SPLIT[platform];
+      rows = getRankingsByDatePlatformType(db, dateStr, dbPlatform, rankingType, 10);
+    } else {
+      rows = getRankingsByDateAndPlatform(db, dateStr, platform, 10);
+    }
     if (rows.length === 0) continue;
     result[platform] = rows.map((r) => ({
       rank: r.rank,
@@ -227,7 +255,13 @@ function buildRankingChanges(db: Database, dateStr: string): Record<string, Reco
       const d = new Date(dateStr + 'T12:00:00');
       d.setDate(d.getDate() - daysAgo);
       const prevStr = toDateStr(d);
-      const prevRows = getRankingsByDateAndPlatform(db, prevStr, platform, 20);
+      let prevRows;
+      if (MUNPIA_SPLIT[platform]) {
+        const { dbPlatform, rankingType } = MUNPIA_SPLIT[platform];
+        prevRows = getRankingsByDatePlatformType(db, prevStr, dbPlatform, rankingType, 20);
+      } else {
+        prevRows = getRankingsByDateAndPlatform(db, prevStr, platform, 20);
+      }
       if (prevRows.length > 0) {
         prevMap = Object.fromEntries(prevRows.map((r: { title: string; rank: number }) => [r.title, r.rank]));
         result[`${platform}_prev_date`] = prevStr;

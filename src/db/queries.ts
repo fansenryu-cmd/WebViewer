@@ -159,6 +159,23 @@ export function getRankingsByDateAndPlatform(
   );
 }
 
+/** 특정 날짜 + 플랫폼 + ranking_type 필터 (문피아 무료/유료 분리용) */
+export function getRankingsByDatePlatformType(
+  db: Database,
+  dateStr: string,
+  platform: string,
+  rankingType: string,
+  limit: number = 10,
+): DailyRanking[] {
+  return queryAll<DailyRanking>(
+    db,
+    `SELECT * FROM daily_rankings
+     WHERE ranking_date = ? AND platform = ? AND ranking_type = ?
+     ORDER BY rank LIMIT ?`,
+    [dateStr, platform, rankingType, limit],
+  );
+}
+
 /** 랭킹 데이터가 있는 날짜 목록 (최근순, N개) */
 export function getAvailableRankingDates(db: Database, limit: number = 60): string[] {
   const rows = queryAll<{ ranking_date: string }>(

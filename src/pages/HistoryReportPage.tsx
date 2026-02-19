@@ -60,7 +60,9 @@ export function HistoryReportPage() {
             .filter(([, list]) => list?.length > 0)
             .map(([platform, list]) => (
               <section key={platform} className="mb-8 bg-white rounded-xl shadow p-4 sm:p-6">
-                <h2 className="text-lg font-semibold text-gray-800 mb-3">{platform} TOP 10</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-3">
+                  {platform.includes('(무료)') ? '📗 ' : platform.includes('(유료)') ? '📕 ' : ''}{platform} TOP 10
+                </h2>
                 <ul className="divide-y divide-gray-100">
                   {list.map((r, i) => (
                     <li key={i} className="py-2 flex items-center gap-4">
