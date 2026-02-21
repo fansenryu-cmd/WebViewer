@@ -11,6 +11,8 @@ import { NovelStatsPage } from './pages/NovelStatsPage';
 import { TodayReportPage } from './pages/TodayReportPage';
 import { HistoryReportPage } from './pages/HistoryReportPage';
 import { AggregateStatsPage } from './pages/AggregateStatsPage';
+import { ComparePage } from './pages/ComparePage';
+import { HallOfFamePage } from './pages/HallOfFamePage';
 import { ArchiveSpiritPage } from './pages/ArchiveSpiritPage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -29,6 +31,8 @@ function AppContent() {
         <Route path="/today" element={<TodayReportPage />} />
         <Route path="/history" element={<HistoryReportPage />} />
         <Route path="/aggregate" element={<AggregateStatsPage />} />
+        <Route path="/compare" element={<ComparePage />} />
+        <Route path="/hall-of-fame" element={<HallOfFamePage />} />
         <Route path="/archive-spirit" element={<ArchiveSpiritPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

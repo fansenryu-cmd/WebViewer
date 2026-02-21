@@ -65,8 +65,8 @@ export function ArchiveSpiritPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async () => {
-    const text = input.trim();
+  const sendMessage = async (textToSend: string) => {
+    const text = textToSend.trim();
     if (!text || !db) return;
 
     const apiKey = getGeminiApiKey();
@@ -127,6 +127,10 @@ ${context}
     }
   };
 
+  const handleSend = () => sendMessage(input);
+  const handleTodayReport = () =>
+    sendMessage('오늘 수집된 랭킹과 조회수 데이터를 요약해주고, 주요 트렌드를 알려줘.');
+
   if (!db) return null;
 
   return (
@@ -135,6 +139,15 @@ ${context}
       <p className="text-gray-600 mb-4 text-sm">
         DB에 저장된 소설·랭킹·성장 데이터를 기반으로 질문하세요.
       </p>
+
+      <button
+        type="button"
+        onClick={handleTodayReport}
+        disabled={loading}
+        className="self-start mb-4 px-4 py-2 text-sm font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 disabled:opacity-50"
+      >
+        📊 오늘의 분석
+      </button>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>

@@ -10,6 +10,8 @@ const NAV_ITEMS = [
   { path: '/today', label: '투데이', icon: '📊' },
   { path: '/history', label: '역대', icon: '📜' },
   { path: '/aggregate', label: '통계', icon: '📈' },
+  { path: '/compare', label: '비교', icon: '🔀' },
+  { path: '/hall-of-fame', label: '명예', icon: '🏆' },
   { path: '/archive-spirit', label: '정령', icon: '✨' },
   { path: '/settings', label: '설정', icon: '⚙️' },
 ];

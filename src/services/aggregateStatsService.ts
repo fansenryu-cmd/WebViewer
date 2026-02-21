@@ -36,8 +36,8 @@ function parseDate(dateStr: string): Date {
   return new Date(dateStr + 'T12:00:00');
 }
 
-/** 한 작품의 (daysSinceLaunch, cumulativeViews) 시리즈 + 총 조회수 */
-function buildNovelSeries(
+/** 한 작품의 (daysSinceLaunch, cumulativeViews) 시리즈 + 총 조회수 (다중 작품 비교용 export) */
+export function buildNovelSeries(
   launchDateStr: string,
   rows: Array<{ date: string; views: number }>,
 ): { total: number; series: SeriesPoint[] } {

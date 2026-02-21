@@ -276,3 +276,51 @@ export function getRecentRankingsForRAG(db: Database, limit: number = 50): Daily
     [limit],
   );
 }
+
+// ==================== 명예의 전당 (V2) ====================
+
+export interface HallOfFameRow {
+  title: string;
+  author: string;
+  platform: string;
+  ranking_type: string;
+  days_in_top100: number;
+  best_rank: number;
+}
+
+/** TOP100 누적 체류일 랭킹 (명예의 전당) */
+export function getHallOfFame(
+  db: Database,
+  platform: string | null,
+  limit: number = 20,
+): HallOfFameRow[] {
+  const platformFilter = platform
+    ? ` AND platform = ?`
+    : '';
+  const params = platform ? [platform, limit] : [limit];
+  return queryAll<HallOfFameRow>(
+    db,
+    `SELECT
+       title,
+       COALESCE(author, '') as author,
+       platform,
+       COALESCE(ranking_type, 'daily') as ranking_type,
+       COUNT(*) as days_in_top100,
+       MIN(rank) as best_rank
+     FROM daily_rankings
+     WHERE 1=1 ${platformFilter}
+     GROUP BY title, author, platform, ranking_type
+     ORDER BY days_in_top100 DESC
+     LIMIT ?`,
+    params,
+  );
+}
+
+/** 랭킹에 등장한 플랫폼 목록 (명예의 전당 필터용) */
+export function getRankingPlatformsForHallOfFame(db: Database): string[] {
+  const rows = queryAll<{ platform: string }>(
+    db,
+    `SELECT DISTINCT platform FROM daily_rankings ORDER BY platform`,
+  );
+  return rows.map((r) => r.platform).filter(Boolean);
+}
