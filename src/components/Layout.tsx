@@ -1,15 +1,16 @@
 /**
- * 레이아웃 — 사이드 내비게이션 + 콘텐츠 (넓은 화면 최적화)
+ * 레이아웃 — 사이드 내비게이션 + 콘텐츠 (데스크톱/모바일 반응형, V2 고도화)
+ * 모바일: 하단 탭바(터치 44px), safe-area, 콘텐츠 하단 여백
  */
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 const NAV_ITEMS = [
   { path: '/', label: '홈', icon: '📚' },
-  { path: '/today', label: '투데이 리포트', icon: '📊' },
-  { path: '/history', label: '역대 리포트', icon: '📜' },
-  { path: '/aggregate', label: '통합 통계', icon: '📈' },
-  { path: '/archive-spirit', label: '아카이브의 정령', icon: '✨' },
+  { path: '/today', label: '투데이', icon: '📊' },
+  { path: '/history', label: '역대', icon: '📜' },
+  { path: '/aggregate', label: '통계', icon: '📈' },
+  { path: '/archive-spirit', label: '정령', icon: '✨' },
   { path: '/settings', label: '설정', icon: '⚙️' },
 ];
 
@@ -17,7 +18,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex bg-gray-50 min-h-[100dvh]">
       {/* 사이드바 (데스크톱) */}
       <aside className="w-52 bg-white border-r border-gray-200 hidden sm:flex flex-col flex-shrink-0">
         <div className="p-4 border-b">
@@ -42,26 +43,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
       </aside>
 
-      {/* 메인 콘텐츠 — 넓은 폭 */}
-      <main className="flex-1 overflow-auto p-4 pb-20 sm:p-6 sm:pb-6 lg:p-8">
-        {children}
+      {/* 메인 콘텐츠 — 모바일 하단 탭바 높이만큼 padding */}
+      <main
+        className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8"
+        style={{
+          paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+          marginBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        <div className="pb-16 sm:pb-0">{children}</div>
       </main>
 
-      {/* 모바일 하단 탭바 */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex sm:hidden z-50"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        {NAV_ITEMS.slice(0, 5).map((item) => {
+      {/* 모바일 하단 탭바 — 터치 타겟 44px 이상, safe-area */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-200 flex sm:hidden z-50"
+        style={{
+          paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
+        }}
+      >
+        {NAV_ITEMS.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link
               key={item.path}
               to={item.path}
-              className={`flex-1 flex flex-col items-center justify-center py-2 text-xs transition-colors ${
-                isActive ? 'text-blue-600 font-medium' : 'text-gray-500'
-              }`}
+              className="flex-1 flex flex-col items-center justify-center min-h-[44px] py-2 text-xs transition-colors active:bg-gray-100"
+              style={{ minHeight: 44 }}
+              aria-current={isActive ? 'page' : undefined}
             >
-              <span className="text-lg mb-0.5">{item.icon}</span>
-              {item.label}
+              <span className={`text-lg mb-0.5 ${isActive ? 'text-blue-600' : 'text-gray-500'}`}>{item.icon}</span>
+              <span className={isActive ? 'text-blue-600 font-medium' : 'text-gray-500'}>{item.label}</span>
             </Link>
           );
         })}
