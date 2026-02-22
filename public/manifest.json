@@ -1,0 +1,11 @@
+{
+  "name": "NovelForge Viewer",
+  "short_name": "NF Viewer",
+  "description": "웹소설 아카이브 뷰어 — 투데이 리포트, 통합 통계, 아카이브의 정령",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#1e40af",
+  "orientation": "any",
+  "lang": "ko"
+}
