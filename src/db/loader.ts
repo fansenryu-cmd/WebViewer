@@ -69,6 +69,48 @@ export async function loadDatabase(
   return db;
 }
 
+/** NovelForge 백엔드 API로 Dropbox 폴더에서 최신 novelforge_YYYYMMDD.db 받아서 로드 */
+export async function loadDatabaseFromDropboxFolder(
+  apiBaseUrl: string,
+  folderUrl: string,
+  onProgress?: (stage: string) => void,
+): Promise<Database> {
+  onProgress?.('최신 DB 조회 중...');
+
+  const base = apiBaseUrl.replace(/\/$/, '');
+  const url = `${base}/api/web-viewer/dropbox-latest?folder_url=${encodeURIComponent(folderUrl)}`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const errText = await response.text();
+    const xError = response.headers.get('x-error') || errText.slice(0, 200);
+    throw new Error(`최신 DB 조회 실패: ${xError || response.statusText}`);
+  }
+
+  const buffer = await response.arrayBuffer();
+  onProgress?.('sql.js 엔진 초기화 중...');
+
+  const initSqlJs = await getInitSqlJs();
+  const SQL = await initSqlJs({ locateFile: () => getWasmUrl() });
+
+  const size = (buffer.byteLength / 1024 / 1024).toFixed(1);
+  onProgress?.(`DB 로드 완료 (${size} MB)`);
+
+  const db = new SQL.Database(new Uint8Array(buffer));
+
+  try {
+    const result = db.exec("SELECT COUNT(*) FROM management_novels");
+    const count = result[0]?.values[0]?.[0] ?? 0;
+    onProgress?.(`소설 ${count}개 로드됨`);
+  } catch {
+    throw new Error('유효한 NovelForge DB 파일이 아닙니다.');
+  }
+
+  setDbUrl(folderUrl);
+  setLastLoadTime();
+  return db;
+}
+
 /** 로컬 파일에서 DB 로드 (다운받은 .db 파일 선택 → 브라우저 메모리에서 열기) */
 export async function loadDatabaseFromFile(
   file: File,
