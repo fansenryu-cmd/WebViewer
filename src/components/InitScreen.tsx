@@ -1,15 +1,87 @@
 /**
  * 초기 화면 — DB 로드 (로컬 파일 선택 또는 Dropbox 링크)
  * sql.js는 로드 시에만 동적 로드해 앱 첫 화면이 멈추지 않도록 함.
+ * Dropbox 폴더 링크인 경우 NovelForge 백엔드 API로 최신 novelforge_YYYYMMDD.db 자동 선택.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getDbUrl, setDbUrl } from '../db/urlStorage';
 import { useDb } from '../context/DbContext';
 
+/** 기본 Dropbox 백업 폴더 링크 (novelforge_YYYYMMDD.db가 백업되는 곳) */
+const DEFAULT_DROPBOX_FOLDER_URL =
+  'https://www.dropbox.com/scl/fo/1hkzsi5dgt6hbx9w117nt/AM4L2U-AYhn5mFkkYbaaAE0?rlkey=bbts8md08lebqb9zohbr5l73i&st=8qy3z4nv&dl=0';
+
+/** 폴더 공유 링크인지 판별 (scl/fo/ 또는 /fo/ 포함, 또는 .db로 안 끝남) */
+function isDropboxFolderLink(link: string): boolean {
+  const u = link.toLowerCase();
+  return (u.includes('scl/fo/') || u.includes('/fo/')) && !u.includes('.db?') && !/\.db\s*$/i.test(link.trim());
+}
+
+/** NovelForge 백엔드 주소 (빌드 시 VITE_API_URL, 없으면 동일 오리진) */
+function getApiBaseUrl(): string {
+  const env = (import.meta.env?.VITE_API_URL as string) || '';
+  if (env) return env.replace(/\/$/, '');
+  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+  return '';
+}
+
 export function InitScreen() {
   const { setDb, setIsLoading, setError, isLoading, error } = useDb();
-  const [url, setUrl] = useState(getDbUrl() || '');
+  const initialUrl = getDbUrl() || DEFAULT_DROPBOX_FOLDER_URL;
+  const [url, setUrl] = useState(initialUrl);
   const [progress, setProgress] = useState('');
+  const autoLoadDone = useRef(false);
+
+  // 폴더 링크 + 백엔드 있으면 가장 최신 날짜(파일명) DB 자동 로드 (최초 1회)
+  useEffect(() => {
+    if (autoLoadDone.current) return;
+    const trimmed = initialUrl.trim();
+    if (!trimmed || !isDropboxFolderLink(trimmed) || !getApiBaseUrl()) return;
+    autoLoadDone.current = true;
+    (async () => {
+      setIsLoading(true);
+      setError(null);
+      setProgress('');
+      try {
+        const { loadDatabaseFromDropboxFolder } = await import('../db/loader');
+        const database = await loadDatabaseFromDropboxFolder(getApiBaseUrl(), trimmed, (stage) => setProgress(stage));
+        setDb(database);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'DB 자동 로드 실패');
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [initialUrl]);
+
+  const handleLoadFromUrlInternal = async (trimmed: string) => {
+    setIsLoading(true);
+    setError(null);
+    setProgress('');
+    try {
+      if (isDropboxFolderLink(trimmed)) {
+        const apiBase = getApiBaseUrl();
+        if (apiBase) {
+          const { loadDatabaseFromDropboxFolder } = await import('../db/loader');
+          const database = await loadDatabaseFromDropboxFolder(apiBase, trimmed, (stage) => setProgress(stage));
+          setDb(database);
+        } else {
+          setError(
+            '폴더에서 최신 DB를 불러오려면 NovelForge 백엔드를 실행한 뒤, 같은 주소에서 웹 뷰어를 열거나 VITE_API_URL을 설정해 주세요. 또는 폴더를 열어 최신 novelforge_YYYYMMDD.db 파일 링크를 복사해 붙여넣어 주세요.',
+          );
+        }
+        return;
+      }
+      const { loadDatabase } = await import('../db/loader');
+      const database = await loadDatabase(trimmed, (stage) => setProgress(stage));
+      setDbUrl(trimmed);
+      setDb(database);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'DB 로드 실패');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLoadFromUrl = async () => {
     const trimmed = url.trim();
@@ -21,19 +93,7 @@ export function InitScreen() {
       setError('Dropbox 공유 링크 형식이 아닙니다.');
       return;
     }
-    setIsLoading(true);
-    setError(null);
-    setProgress('');
-    try {
-      const { loadDatabase } = await import('../db/loader');
-      const database = await loadDatabase(trimmed, (stage) => setProgress(stage));
-      setDbUrl(trimmed);
-      setDb(database);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'DB 로드 실패');
-    } finally {
-      setIsLoading(false);
-    }
+    await handleLoadFromUrlInternal(trimmed);
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,17 +139,20 @@ export function InitScreen() {
           <span className="block text-center text-sm text-gray-400">또는</span>
         </div>
 
-        {/* Dropbox 링크 */}
+        {/* Dropbox 링크 (파일 직접 링크 또는 백업 폴더 링크) */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">Dropbox 링크</label>
           <input
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://www.dropbox.com/s/xxxxx/novelforge.db?dl=0"
+            placeholder="폴더 링크 또는 novelforge_YYYYMMDD.db 직접 링크"
             className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
             disabled={isLoading}
           />
+          <p className="mt-1 text-xs text-gray-500">
+            기본값: 백업 폴더. 폴더 링크면 백엔드 실행 시 최신 DB를 자동 선택합니다.
+          </p>
           <button
             onClick={handleLoadFromUrl}
             disabled={isLoading}
@@ -97,6 +160,16 @@ export function InitScreen() {
           >
             {isLoading ? '로딩 중...' : 'DB 로드'}
           </button>
+          {isDropboxFolderLink(url.trim()) && !getApiBaseUrl() && url.trim() && (
+            <a
+              href={url.trim()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-block text-sm text-blue-600 hover:underline"
+            >
+              📂 폴더 열기 (최신 DB 파일 링크 복사)
+            </a>
+          )}
         </div>
 
         {progress && (
