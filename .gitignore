@@ -16,3 +16,4 @@ Thumbs.db
 .env.local
 .env.*.local
 commit_msg.txt
+commit_msg2.txt
