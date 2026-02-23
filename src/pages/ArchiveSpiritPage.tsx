@@ -1,202 +1,185 @@
 /**
- * 아카이브의 정령 — RAG 기반 AI 채팅 (Step 11)
- * 프론트엔드에서 DB 컨텍스트 추출 후 Gemini API 직접 호출
+ * 아카이브의 정령 — AI 채팅 (Gemini API 직접 호출)
  */
-import React, { useState, useRef, useEffect } from 'react';
-import { useDb } from '../context/DbContext';
-import {
-  getNovelsSummaryForRAG,
-  getRecentGrowthForRAG,
-  getRecentRankingsForRAG,
-  getLatestRankingDate,
-} from '../db/queries';
-import { getGeminiApiKey } from '../utils/settings';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useDb } from '../hooks/useDb';
+import { chatWithSpirit, type ChatMessage } from '../services/geminiService';
 
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
+const STORAGE_KEY = 'nf-gemini-key';
+const EXAMPLE_QUESTIONS = [
+  '내 작품 중 가장 성장세가 좋은 작품은?',
+  '플랫폼별 조회수 비교를 해줘',
+  '최근 7일간 트렌드를 분석해줘',
+  '내 소설의 강점과 약점은?',
+];
 
-function buildRAGContext(db: import('sql.js').Database): string {
-  const lines: string[] = [];
-  lines.push('=== 소설 목록 (최근 100개) ===');
-  const novels = getNovelsSummaryForRAG(db, 100);
-  novels.forEach((n) => {
-    lines.push(`- [${n.id}] ${n.title} | ${n.author || '?'} | ${n.platform || '?'} | 런칭: ${n.launch_date || '-'}`);
-  });
-
-  const latestDate = getLatestRankingDate(db);
-  if (latestDate) {
-    lines.push('\n=== 최근 성장률 (최근 30일 기준) ===');
-    const growth = getRecentGrowthForRAG(db, latestDate, 30);
-    growth.forEach((g) => {
-      const old = g.old_views ?? 0;
-      const rate = old ? (((g.recent_views - old) / old) * 100).toFixed(1) : '-';
-      lines.push(`- ${g.title} (${g.platform}) | 최근: ${g.recent_views.toLocaleString()} | 성장률: ${rate}%`);
-    });
-
-    lines.push('\n=== 최근 랭킹 ===');
-    const rankings = getRecentRankingsForRAG(db, 50);
-    const byPlatform: Record<string, typeof rankings> = {};
-    for (const r of rankings) {
-      if (!byPlatform[r.platform]) byPlatform[r.platform] = [];
-      byPlatform[r.platform].push(r);
-    }
-    for (const [platform, list] of Object.entries(byPlatform)) {
-      lines.push(`\n[${platform}] ${latestDate}`);
-      list.slice(0, 10).forEach((r) => {
-        lines.push(`  ${r.rank}. ${r.title} (${r.author})`);
-      });
-    }
-  }
-
-  return lines.join('\n');
-}
-
-export function ArchiveSpiritPage() {
+export default function ArchiveSpiritPage() {
   const { db } = useDb();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem(STORAGE_KEY) || '');
+  const [keyInput, setKeyInput] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = async (textToSend: string) => {
-    const text = textToSend.trim();
-    if (!text || !db) return;
-
-    const apiKey = getGeminiApiKey();
-    if (!apiKey) {
-      setError('Gemini API 키가 설정되지 않았습니다. 설정 페이지에서 입력해주세요.');
-      return;
+  const saveKey = useCallback(() => {
+    const key = keyInput.trim();
+    if (key) {
+      localStorage.setItem(STORAGE_KEY, key);
+      setApiKey(key);
     }
+  }, [keyInput]);
 
-    setMessages((prev) => [...prev, { role: 'user', content: text }]);
-    setInput('');
-    setLoading(true);
-    setError(null);
+  const send = useCallback(
+    async (text: string) => {
+      if (!db || !apiKey || !text.trim() || sending) return;
 
-    try {
-      const context = buildRAGContext(db);
-      const sysPrompt = `당신은 "아카이브의 정령"이라는 웹소설 통계 아카이브의 AI 어시스턴트입니다.
-아래는 NovelForge DB에서 추출한 최신 데이터입니다. 사용자 질문에 이 데이터를 기반으로 답변해주세요.
-데이터에 없는 내용은 추측하지 말고 "해당 데이터가 없습니다"라고 답변하세요.
-한국어로 친절하고 간결하게 답변해주세요.
+      const userMsg: ChatMessage = { role: 'user', text: text.trim() };
+      setMessages((prev) => [...prev, userMsg]);
+      setInput('');
+      setSending(true);
 
---- 데이터 ---
-${context}
----`;
-      const userContent = text;
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              { role: 'user', parts: [{ text: sysPrompt + '\n\n[사용자 질문]\n' + userContent }] },
-            ],
-            generationConfig: {
-              temperature: 0.3,
-              maxOutputTokens: 2048,
-            },
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        const errBody = await response.text();
-        throw new Error(`API 오류: ${response.status} ${errBody.slice(0, 200)}`);
+      try {
+        const history = messages.map((m) => ({
+          role: m.role,
+          text: m.text,
+        }));
+        const reply = await chatWithSpirit(db, apiKey, history, text.trim());
+        setMessages((prev) => [...prev, { role: 'model', text: reply }]);
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : '오류가 발생했습니다';
+        setMessages((prev) => [...prev, { role: 'model', text: `⚠️ ${errMsg}` }]);
+      } finally {
+        setSending(false);
       }
+    },
+    [db, apiKey, messages, sending],
+  );
 
-      const data = await response.json();
-      const textPart = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      const assistantText = textPart?.trim() || '답변을 생성하지 못했습니다.';
-      setMessages((prev) => [...prev, { role: 'assistant', content: assistantText }]);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '요청 실패';
-      setError(msg);
-      setMessages((prev) => [...prev, { role: 'assistant', content: `오류: ${msg}` }]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (!db) {
+    return (
+      <div className="flex items-center justify-center h-64 text-slate-400">
+        DB를 먼저 로드해주세요
+      </div>
+    );
+  }
 
-  const handleSend = () => sendMessage(input);
-  const handleTodayReport = () =>
-    sendMessage('오늘 수집된 랭킹과 조회수 데이터를 요약해주고, 주요 트렌드를 알려줘.');
-
-  if (!db) return null;
+  // API 키 미설정
+  if (!apiKey) {
+    return (
+      <div className="p-4 flex flex-col items-center justify-center h-[60vh] space-y-4">
+        <span className="text-5xl">🔮</span>
+        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">
+          아카이브의 정령
+        </h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
+          Gemini API 키를 입력해주세요.<br />
+          키는 이 브라우저에만 저장됩니다.
+        </p>
+        <div className="w-full max-w-sm flex gap-2">
+          <input
+            type="password"
+            value={keyInput}
+            onChange={(e) => setKeyInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && saveKey()}
+            placeholder="AIza..."
+            className="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm"
+          />
+          <button
+            onClick={saveKey}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600"
+          >
+            저장
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] max-h-[700px]">
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">아카이브의 정령</h1>
-      <p className="text-gray-600 mb-4 text-sm">
-        DB에 저장된 소설·랭킹·성장 데이터를 기반으로 질문하세요.
-      </p>
-
-      <button
-        type="button"
-        onClick={handleTodayReport}
-        disabled={loading}
-        className="self-start mb-4 px-4 py-2 text-sm font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 disabled:opacity-50"
-      >
-        📊 오늘의 분석
-      </button>
-
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>
-      )}
-
-      <div className="flex-1 overflow-y-auto bg-white rounded-xl border border-gray-200 p-4 mb-4">
+    <div className="flex flex-col h-[calc(100vh-7rem)]">
+      {/* 채팅 영역 */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
-          <p className="text-gray-500 text-sm">
-            예: &quot;최근 성장률이 높은 소설은?&quot;, &quot;문피아 랭킹 1위는?&quot;
-          </p>
+          <div className="text-center space-y-4 mt-8">
+            <span className="text-5xl">🔮</span>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              데이터 기반 질문을 해보세요
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {EXAMPLE_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => send(q)}
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-xs text-slate-600 dark:text-slate-300 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
-        {messages.map((m, i) => (
+
+        {messages.map((msg, i) => (
           <div
             key={i}
-            className={`mb-3 ${m.role === 'user' ? 'text-right' : 'text-left'}`}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
-            <span
-              className={`inline-block max-w-[85%] px-3 py-2 rounded-lg text-sm ${
-                m.role === 'user'
-                  ? 'bg-blue-100 text-blue-900'
-                  : 'bg-gray-100 text-gray-900 whitespace-pre-wrap'
+            <div
+              className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
+                msg.role === 'user'
+                  ? 'bg-blue-500 text-white rounded-br-md'
+                  : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-bl-md'
               }`}
             >
-              {m.content}
-            </span>
+              {msg.text}
+            </div>
           </div>
         ))}
-        {loading && (
-          <div className="text-left text-gray-500 text-sm">생각 중...</div>
+
+        {sending && (
+          <div className="flex justify-start">
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-2xl rounded-bl-md">
+              <span className="animate-pulse text-sm text-slate-400">분석 중...</span>
+            </div>
+          </div>
         )}
+
         <div ref={bottomRef} />
       </div>
 
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-          placeholder="질문을 입력하세요..."
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          disabled={loading}
-        />
+      {/* 입력 영역 */}
+      <div className="p-3 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send(input)}
+            placeholder="질문을 입력하세요..."
+            disabled={sending}
+            className="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-sm disabled:opacity-50"
+          />
+          <button
+            onClick={() => send(input)}
+            disabled={sending || !input.trim()}
+            className="px-4 py-2 bg-blue-500 text-white rounded-xl text-sm font-medium hover:bg-blue-600 disabled:opacity-50 disabled:hover:bg-blue-500"
+          >
+            전송
+          </button>
+        </div>
         <button
-          onClick={handleSend}
-          disabled={loading || !input.trim()}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          onClick={() => {
+            localStorage.removeItem(STORAGE_KEY);
+            setApiKey('');
+          }}
+          className="mt-1 text-xs text-slate-400 hover:text-red-400"
         >
-          전송
+          API 키 초기화
         </button>
       </div>
     </div>

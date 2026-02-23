@@ -2,28 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 스크롤바 커스텀 */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-/* 모바일 탭바 여백 */
-body {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-/* Recharts 반응형 */
-.recharts-responsive-container {
-  width: 100% !important;
+@layer base {
+  body {
+    @apply antialiased;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 dark:bg-slate-600 rounded-full;
+  }
 }

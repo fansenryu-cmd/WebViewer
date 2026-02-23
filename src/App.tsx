@@ -1,41 +1,27 @@
 /**
- * App — DB 초기화 + 라우팅
+ * 앱 라우팅 — DB 로드 여부에 따라 분기
  */
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { DbProvider, useDb } from './context/DbContext';
-import { InitScreen } from './components/InitScreen';
-import { Layout } from './components/Layout';
-import { HomePage } from './pages/HomePage';
-import { NovelStatsPage } from './pages/NovelStatsPage';
-import { TodayReportPage } from './pages/TodayReportPage';
-import { HistoryReportPage } from './pages/HistoryReportPage';
-import { AggregateStatsPage } from './pages/AggregateStatsPage';
-import { ComparePage } from './pages/ComparePage';
-import { HallOfFamePage } from './pages/HallOfFamePage';
-import { ArchiveSpiritPage } from './pages/ArchiveSpiritPage';
-import { SettingsPage } from './pages/SettingsPage';
+import { HashRouter, Routes, Route } from 'react-router-dom';
+import { useDb } from './hooks/useDb';
+import Layout from './components/Layout';
+import LoadDbPage from './pages/LoadDbPage';
+import DashboardPage from './pages/DashboardPage';
+import ReportPage from './pages/ReportPage';
+import StatsPage from './pages/StatsPage';
+import ArchiveSpiritPage from './pages/ArchiveSpiritPage';
 
-function AppContent() {
+function AppRoutes() {
   const { db } = useDb();
 
-  if (!db) {
-    return <InitScreen />;
-  }
+  if (!db) return <LoadDbPage />;
 
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/novel/:id" element={<NovelStatsPage />} />
-        <Route path="/today" element={<TodayReportPage />} />
-        <Route path="/history" element={<HistoryReportPage />} />
-        <Route path="/aggregate" element={<AggregateStatsPage />} />
-        <Route path="/compare" element={<ComparePage />} />
-        <Route path="/hall-of-fame" element={<HallOfFamePage />} />
-        <Route path="/archive-spirit" element={<ArchiveSpiritPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/report" element={<ReportPage />} />
+        <Route path="/stats" element={<StatsPage />} />
+        <Route path="/spirit" element={<ArchiveSpiritPage />} />
       </Routes>
     </Layout>
   );
@@ -43,8 +29,8 @@ function AppContent() {
 
 export default function App() {
   return (
-    <DbProvider>
-      <AppContent />
-    </DbProvider>
+    <HashRouter>
+      <AppRoutes />
+    </HashRouter>
   );
 }
