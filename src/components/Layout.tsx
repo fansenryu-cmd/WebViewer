@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/', icon: '📊', label: '대시보드' },
   { to: '/report', icon: '📰', label: '리포트' },
   { to: '/stats', icon: '📈', label: '통계' },
+  { to: '/rookie-monitor', icon: '🖥️', label: '신작' },
   { to: '/spirit', icon: '🔮', label: '정령' },
 ] as const;
 

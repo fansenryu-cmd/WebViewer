@@ -9,6 +9,7 @@ import DashboardPage from './pages/DashboardPage';
 import ReportPage from './pages/ReportPage';
 import StatsPage from './pages/StatsPage';
 import ArchiveSpiritPage from './pages/ArchiveSpiritPage';
+import RookieMonitorPage from './pages/RookieMonitorPage';
 
 function AppRoutes() {
   const { db } = useDb();
@@ -22,6 +23,7 @@ function AppRoutes() {
         <Route path="/report" element={<ReportPage />} />
         <Route path="/stats" element={<StatsPage />} />
         <Route path="/spirit" element={<ArchiveSpiritPage />} />
+        <Route path="/rookie-monitor" element={<RookieMonitorPage />} />
       </Routes>
     </Layout>
   );

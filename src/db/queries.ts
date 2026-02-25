@@ -133,3 +133,61 @@ export function getStatBefore(
   );
   return rows[0] || null;
 }
+
+// ─── 신작 모니터링 쿼리 ───
+
+/** 신작 모니터링용 ranking_type 목록 */
+export const ROOKIE_MONITOR_RANKING_TYPES = [
+  'rookie',
+  'new_novel_today',
+  'genre_heroism',
+  'genre_fantasy',
+  'genre_fusion',
+  'genre_game',
+  'genre_newfantasy',
+  'genre_history',
+] as const;
+
+/** 신작 모니터링 데이터가 있는 최근 날짜 목록 */
+export function getRecentRookieMonitorDates(db: Database, limit = 30): string[] {
+  return queryAll<{ ranking_date: string }>(
+    db,
+    `SELECT DISTINCT ranking_date FROM daily_rankings
+     WHERE ranking_type IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')
+     ORDER BY ranking_date DESC LIMIT ?`,
+    [limit],
+  ).map((r) => r.ranking_date);
+}
+
+/** 가장 최근 신작 모니터링 날짜 */
+export function getLatestRookieMonitorDate(db: Database): string | null {
+  const rows = queryAll<{ ranking_date: string }>(
+    db,
+    `SELECT ranking_date FROM daily_rankings
+     WHERE ranking_type IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')
+     ORDER BY ranking_date DESC LIMIT 1`,
+  );
+  return rows[0]?.ranking_date || null;
+}
+
+/** 특정 날짜의 신작 모니터링 랭킹 전체 */
+export function getRookieMonitorRankingsByDate(db: Database, date: string): DailyRanking[] {
+  return queryAll<DailyRanking>(
+    db,
+    `SELECT * FROM daily_rankings
+     WHERE ranking_date = ?
+       AND ranking_type IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')
+     ORDER BY ranking_type, rank`,
+    [date],
+  );
+}
+
+/** 특정 소설의 특정 날짜 통계 */
+export function getStatByDate(db: Database, novelId: number, date: string): DailyStatistics | null {
+  const rows = queryAll<DailyStatistics>(
+    db,
+    'SELECT * FROM daily_statistics WHERE novel_id = ? AND date = ? LIMIT 1',
+    [novelId, date],
+  );
+  return rows[0] || null;
+}
