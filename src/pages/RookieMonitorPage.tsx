@@ -4,8 +4,8 @@
  */
 import { useMemo, useState } from 'react';
 import { useDb } from '../hooks/useDb';
-import { getRecentRookieMonitorDates } from '../db/queries';
-import { getRookieMonitorReport, getLatestRookieMonitorDate } from '../services/rookieMonitorService';
+import { getRecentRookieMonitorDates, getLatestRookieMonitorDate } from '../db/queries';
+import { getRookieMonitorReport } from '../services/rookieMonitorService';
 
 function formatViews(v: number | null | undefined): string {
   if (v == null) return '-';

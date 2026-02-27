@@ -10,6 +10,7 @@ import ReportPage from './pages/ReportPage';
 import StatsPage from './pages/StatsPage';
 import ArchiveSpiritPage from './pages/ArchiveSpiritPage';
 import RookieMonitorPage from './pages/RookieMonitorPage';
+import TitlePatternPage from './pages/TitlePatternPage';
 
 function AppRoutes() {
   const { db } = useDb();
@@ -24,6 +25,7 @@ function AppRoutes() {
         <Route path="/stats" element={<StatsPage />} />
         <Route path="/spirit" element={<ArchiveSpiritPage />} />
         <Route path="/rookie-monitor" element={<RookieMonitorPage />} />
+        <Route path="/title-analysis" element={<TitlePatternPage />} />
       </Routes>
     </Layout>
   );

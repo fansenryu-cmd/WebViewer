@@ -191,3 +191,51 @@ export function getStatByDate(db: Database, novelId: number, date: string): Dail
   );
   return rows[0] || null;
 }
+
+// ─── 랭킹 변동 감지 쿼리 ───
+
+/** 특정 날짜 직전의 랭킹 날짜 (이전 날짜) */
+export function getPreviousRankingDate(db: Database, currentDate: string): string | null {
+  const rows = queryAll<{ ranking_date: string }>(
+    db,
+    'SELECT DISTINCT ranking_date FROM daily_rankings WHERE ranking_date < ? ORDER BY ranking_date DESC LIMIT 1',
+    [currentDate],
+  );
+  return rows[0]?.ranking_date || null;
+}
+
+// ─── 제목 패턴 분석용 쿼리 ───
+
+/** 최근 N일 내 랭킹 제목 + 플랫폼 (중복 제거) */
+export function getRecentRankingTitles(
+  db: Database,
+  days = 60,
+): { title: string; platform: string; genre: string }[] {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  return queryAll<{ title: string; platform: string; genre: string }>(
+    db,
+    `SELECT DISTINCT title, platform, genre FROM daily_rankings
+     WHERE ranking_date >= ? AND ranking_type NOT IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')
+     ORDER BY title`,
+    [cutoffStr],
+  );
+}
+
+/** 장르 성장률 계산용: 최근 기간별 장르별 신규 등록 소설 수 */
+export function getNovelCountByGenrePeriod(
+  db: Database,
+  startDate: string,
+  endDate: string,
+): { genre: string; cnt: number }[] {
+  return queryAll<{ genre: string; cnt: number }>(
+    db,
+    `SELECT genre, COUNT(DISTINCT title) as cnt FROM daily_rankings
+     WHERE ranking_date >= ? AND ranking_date <= ?
+       AND genre IS NOT NULL AND genre != ''
+       AND ranking_type NOT IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')
+     GROUP BY genre ORDER BY cnt DESC`,
+    [startDate, endDate],
+  );
+}

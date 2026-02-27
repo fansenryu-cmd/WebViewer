@@ -71,3 +71,40 @@ export interface PlatformAggregate {
   percentileTop?: number;
   totalNovels: number;
 }
+
+/** 랭킹 변동 정보 */
+export interface RankingChange {
+  title: string;
+  currentRank: number;
+  prevRank: number | null; // null = 신규 진입
+  change: number; // positive = 상승, negative = 하락, 0 = 유지
+  changeType: 'NEW' | 'UP' | 'DOWN' | 'SAME';
+}
+
+/** 제목 패턴 분석 결과 */
+export interface TitlePatternResult {
+  modifiers: PatternItem[];
+  jobs: PatternItem[];
+  actions: PatternItem[];
+  other_keywords: PatternItem[];
+}
+
+export interface PatternItem {
+  keyword: string;
+  count: number;
+}
+
+/** 키워드 빈도 행 */
+export interface KeywordFreqRow {
+  keyword: string;
+  platforms: Record<string, number>;
+  total: number;
+}
+
+/** 장르 성장률 */
+export interface GenreGrowthItem {
+  genre: string;
+  prev_count: number;
+  this_count: number;
+  growth_rate: number;
+}

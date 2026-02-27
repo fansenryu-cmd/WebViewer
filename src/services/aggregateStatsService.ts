@@ -3,9 +3,8 @@
  */
 import type { Database } from 'sql.js';
 import {
-  getNovelsWithLaunchDate,
-  getAllStatsForAggregate,
-  getDailyStats,
+  getAllNovels,
+  getAllStats,
 } from '../db/queries';
 import type { ManagementNovel } from '../db/types';
 import type { SeriesPoint } from '../db/types';
@@ -161,10 +160,10 @@ export interface AggregateStatsResponse {
 }
 
 export function getAggregateStats(db: Database, selectedNovelId?: number | null): AggregateStatsResponse {
-  const novels = getNovelsWithLaunchDate(db);
+  const novels = getAllNovels(db).filter((n) => n.launch_date);
   if (!novels.length) return { byPlatform: {}, platforms: [] };
 
-  const allStats = getAllStatsForAggregate(db);
+  const allStats = getAllStats(db);
   const byNovel: Record<number, Array<{ date: string; views: number }>> = {};
   for (const n of novels) byNovel[n.id] = [];
   for (const row of allStats) {
