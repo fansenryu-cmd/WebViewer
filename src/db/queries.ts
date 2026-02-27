@@ -239,3 +239,234 @@ export function getNovelCountByGenrePeriod(
     [startDate, endDate],
   );
 }
+
+// ─── 심화 분석(Deep Analysis) 쿼리 ───
+
+/** 특정 소설의 일일 통계 (날짜 범위) */
+export function getStatsByNovelIdSince(
+  db: Database,
+  novelId: number,
+  sinceDate: string,
+): Array<{ date: string; views: number }> {
+  return queryAll<{ date: string; views: number }>(
+    db,
+    'SELECT date, views FROM daily_statistics WHERE novel_id = ? AND date >= ? ORDER BY date ASC',
+    [novelId, sinceDate],
+  );
+}
+
+/** 플랫폼별 전체 소설의 일일 통계 */
+export function getAllStatsSince(
+  db: Database,
+  sinceDate: string,
+  platform?: string,
+): Array<{ novel_id: number; date: string; views: number }> {
+  if (platform) {
+    return queryAll<{ novel_id: number; date: string; views: number }>(
+      db,
+      `SELECT ds.novel_id, ds.date, ds.views
+       FROM daily_statistics ds
+       JOIN management_novels mn ON ds.novel_id = mn.id
+       WHERE ds.date >= ? AND mn.platform LIKE ?
+       ORDER BY ds.novel_id, ds.date ASC`,
+      [sinceDate, `%${platform}%`],
+    );
+  }
+  return queryAll<{ novel_id: number; date: string; views: number }>(
+    db,
+    `SELECT novel_id, date, views
+     FROM daily_statistics
+     WHERE date >= ?
+     ORDER BY novel_id, date ASC`,
+    [sinceDate],
+  );
+}
+
+/** 랭킹 생존 분석용 데이터 */
+export function getRankingAppearances(
+  db: Database,
+  sinceDate: string,
+): Array<{ title: string; platform: string; genre: string; ranking_date: string }> {
+  return queryAll<{ title: string; platform: string; genre: string; ranking_date: string }>(
+    db,
+    `SELECT title, platform, genre, ranking_date
+     FROM daily_rankings
+     WHERE ranking_date >= ?
+       AND ranking_type NOT IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')
+     ORDER BY title, ranking_date ASC`,
+    [sinceDate],
+  );
+}
+
+/** 시장 집중도용 차원별 카운트 */
+export function getConcentrationData(
+  db: Database,
+  dimension: 'publisher' | 'genre' | 'platform',
+  sinceDate: string,
+): Array<{ name: string; cnt: number }> {
+  if (dimension === 'genre') {
+    // 장르: ManagementNovel.genre + DailyRanking 교차 참조
+    const rows = queryAll<{ name: string; cnt: number }>(
+      db,
+      `SELECT mn.genre AS name, COUNT(dr.id) AS cnt
+       FROM management_novels mn
+       JOIN daily_rankings dr ON mn.id = dr.novel_id
+       WHERE dr.ranking_date >= ?
+         AND mn.genre IS NOT NULL AND mn.genre != ''
+       GROUP BY mn.genre
+       ORDER BY cnt DESC`,
+      [sinceDate],
+    );
+    if (rows.length > 0) return rows;
+    // 폴백: ManagementNovel만
+    return queryAll<{ name: string; cnt: number }>(
+      db,
+      `SELECT genre AS name, COUNT(id) AS cnt
+       FROM management_novels
+       WHERE genre IS NOT NULL AND genre != ''
+       GROUP BY genre ORDER BY cnt DESC`,
+    );
+  }
+
+  // publisher / platform: DailyRanking 기반
+  const col = dimension === 'publisher' ? 'publisher' : 'platform';
+  const rows = queryAll<{ name: string; cnt: number }>(
+    db,
+    `SELECT ${col} AS name, COUNT(id) AS cnt
+     FROM daily_rankings
+     WHERE ranking_date >= ?
+       AND ${col} IS NOT NULL AND ${col} != '' AND ${col} != '알 수 없음'
+     GROUP BY ${col}
+     ORDER BY cnt DESC`,
+    [sinceDate],
+  );
+  if (rows.length > 0) return rows;
+  // 폴백: ManagementNovel
+  return queryAll<{ name: string; cnt: number }>(
+    db,
+    `SELECT ${col} AS name, COUNT(id) AS cnt
+     FROM management_novels
+     WHERE ${col} IS NOT NULL AND ${col} != '' AND ${col} != '알 수 없음'
+     GROUP BY ${col}
+     ORDER BY cnt DESC`,
+  );
+}
+
+/** TF-IDF용 플랫폼별 제목 */
+export function getTitlesByPlatform(
+  db: Database,
+): Array<{ platform: string; title: string }> {
+  // ManagementNovel 우선, DailyRanking 보충
+  const mnRows = queryAll<{ platform: string; title: string }>(
+    db,
+    `SELECT platform, title FROM management_novels
+     WHERE title IS NOT NULL AND title != ''`,
+  );
+  if (mnRows.length >= 5) return mnRows;
+
+  const existing = new Set(mnRows.map((r) => r.title));
+  const drRows = queryAll<{ platform: string; title: string }>(
+    db,
+    `SELECT DISTINCT platform, title FROM daily_rankings
+     WHERE title IS NOT NULL AND title != ''
+       AND ranking_type NOT IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')`,
+  );
+  for (const r of drRows) {
+    if (!existing.has(r.title)) {
+      mnRows.push(r);
+      existing.add(r.title);
+    }
+  }
+  return mnRows;
+}
+
+/** 교차 분석용 작가-플랫폼 쌍 */
+export function getAuthorPlatformPairs(
+  db: Database,
+  sinceDate: string,
+): Array<{ author: string; platform: string }> {
+  // DailyRanking 우선
+  const rows = queryAll<{ author: string; platform: string }>(
+    db,
+    `SELECT DISTINCT author, platform FROM daily_rankings
+     WHERE ranking_date >= ?
+       AND author IS NOT NULL AND author != '' AND author != '알 수 없음'
+       AND platform IS NOT NULL AND platform != ''`,
+    [sinceDate],
+  );
+  if (rows.length > 0) return rows;
+  // 폴백: ManagementNovel
+  return queryAll<{ author: string; platform: string }>(
+    db,
+    `SELECT DISTINCT author, platform FROM management_novels
+     WHERE author IS NOT NULL AND author != '' AND author != '알 수 없음'
+       AND platform IS NOT NULL AND platform != ''`,
+  );
+}
+
+/** 장르×플랫폼 히트맵 데이터 */
+export function getGenrePlatformHeatmap(
+  db: Database,
+  sinceDate: string,
+): Array<{ genre: string; platform: string; avg_views: number; count: number }> {
+  const rows = queryAll<{ genre: string; platform: string; avg_views: number; count: number }>(
+    db,
+    `SELECT genre, platform, AVG(views) AS avg_views, COUNT(id) AS count
+     FROM daily_rankings
+     WHERE ranking_date >= ?
+       AND genre IS NOT NULL AND genre != ''
+       AND views IS NOT NULL
+     GROUP BY genre, platform`,
+    [sinceDate],
+  );
+  if (rows.length > 0) return rows;
+  // 폴백: ManagementNovel (count만)
+  return queryAll<{ genre: string; platform: string; avg_views: number; count: number }>(
+    db,
+    `SELECT genre, platform, COUNT(id) AS avg_views, COUNT(id) AS count
+     FROM management_novels
+     WHERE genre IS NOT NULL AND genre != ''
+       AND platform IS NOT NULL AND platform != ''
+     GROUP BY genre, platform`,
+  );
+}
+
+/** 전환 퍼널용 문피아 소설 상세 데이터 */
+export function getMunpiaDetailData(
+  db: Database,
+): Array<{ novel_id: number; title: string; date: string; views: number; detail_data: string }> {
+  return queryAll<{ novel_id: number; title: string; date: string; views: number; detail_data: string }>(
+    db,
+    `SELECT mn.id AS novel_id, mn.title, ds.date, ds.views, ds.detail_data
+     FROM management_novels mn
+     JOIN daily_statistics ds ON mn.id = ds.novel_id
+     WHERE mn.platform LIKE '%문피아%'
+     ORDER BY mn.id, ds.date ASC`,
+  );
+}
+
+/** 소설ID→장르 매핑 (ManagementNovel.genre 우선, DailyRanking.genre 보충) */
+export function getNovelGenreMap(db: Database): Map<number, string> {
+  const map = new Map<number, string>();
+  // ManagementNovel.genre 우선
+  const mnRows = queryAll<{ id: number; genre: string }>(
+    db,
+    `SELECT id, genre FROM management_novels
+     WHERE genre IS NOT NULL AND genre != ''`,
+  );
+  for (const r of mnRows) {
+    map.set(r.id, r.genre);
+  }
+  // DailyRanking.genre 보충 (novel_id가 있고 ManagementNovel에 장르가 없는 경우)
+  const drRows = queryAll<{ novel_id: number; genre: string }>(
+    db,
+    `SELECT DISTINCT novel_id, genre FROM daily_rankings
+     WHERE novel_id IS NOT NULL AND genre IS NOT NULL AND genre != ''`,
+  );
+  for (const r of drRows) {
+    if (r.novel_id && !map.has(r.novel_id)) {
+      map.set(r.novel_id, r.genre);
+    }
+  }
+  return map;
+}

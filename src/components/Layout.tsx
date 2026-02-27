@@ -10,7 +10,8 @@ const NAV_ITEMS = [
   { to: '/report', icon: '📰', label: '리포트' },
   { to: '/stats', icon: '📈', label: '통계' },
   { to: '/rookie-monitor', icon: '🖥️', label: '신작' },
-  { to: '/title-analysis', icon: '🔤', label: '분석' },
+  { to: '/title-analysis', icon: '🔤', label: '패턴' },
+  { to: '/deep-analysis', icon: '🔬', label: '심층' },
   { to: '/spirit', icon: '🔮', label: '정령' },
 ] as const;
 
@@ -62,14 +63,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center py-2 text-xs transition-colors ${
+              `flex-1 flex flex-col items-center py-2 text-[10px] transition-colors ${
                 isActive
                   ? 'text-blue-600 dark:text-blue-400 font-semibold'
                   : 'text-slate-500 dark:text-slate-400'
               }`
             }
           >
-            <span className="text-lg">{icon}</span>
+            <span className="text-base">{icon}</span>
             <span>{label}</span>
           </NavLink>
         ))}
