@@ -1,20 +1,47 @@
 /**
- * DB 로드 페이지 — Dropbox URL 또는 로컬 파일
+ * DB 로드 페이지 — Google Drive / Dropbox / 로컬 파일
  */
 import { useState, useCallback } from 'react';
 import { useDb } from '../hooks/useDb';
 
 const DROPBOX_URL_KEY = 'nf-dropbox-url';
+const GDRIVE_FOLDER_KEY = 'nf-gdrive-folder';
+const GDRIVE_APIKEY_KEY = 'nf-gdrive-apikey';
+const LOAD_MODE_KEY = 'nf-load-mode';
+
+const DEFAULT_FOLDER_ID = '1s_oWuwDzG_4bS0ZS1UoGlw2NWYaJfajL';
+
+type LoadMode = 'gdrive' | 'dropbox';
 
 export default function LoadDbPage() {
-  const { loading, error, loadFromDropbox, loadFromLocal } = useDb();
+  const { loading, error, loadFromDropbox, loadFromLocal, loadFromGoogleDrive } = useDb();
+
+  const [mode, setMode] = useState<LoadMode>(
+    () => (localStorage.getItem(LOAD_MODE_KEY) as LoadMode) || 'gdrive',
+  );
   const [url, setUrl] = useState(() => localStorage.getItem(DROPBOX_URL_KEY) || '');
+  const [folderId, setFolderId] = useState(
+    () => localStorage.getItem(GDRIVE_FOLDER_KEY) || DEFAULT_FOLDER_ID,
+  );
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem(GDRIVE_APIKEY_KEY) || '');
+
+  const switchMode = useCallback((m: LoadMode) => {
+    setMode(m);
+    localStorage.setItem(LOAD_MODE_KEY, m);
+  }, []);
 
   const handleDropbox = useCallback(async () => {
     if (!url.trim()) return;
     localStorage.setItem(DROPBOX_URL_KEY, url.trim());
     await loadFromDropbox(url.trim());
   }, [url, loadFromDropbox]);
+
+  const handleGoogleDrive = useCallback(async () => {
+    if (!folderId.trim() || !apiKey.trim()) return;
+    localStorage.setItem(GDRIVE_FOLDER_KEY, folderId.trim());
+    localStorage.setItem(GDRIVE_APIKEY_KEY, apiKey.trim());
+    await loadFromGoogleDrive(folderId.trim(), apiKey.trim());
+  }, [folderId, apiKey, loadFromGoogleDrive]);
 
   const handleFile = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,27 +64,98 @@ export default function LoadDbPage() {
           </p>
         </div>
 
-        {/* Dropbox URL */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-lg border border-slate-200 dark:border-slate-700 space-y-3">
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-            <span>☁️</span> Dropbox에서 로드
-          </h2>
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleDropbox()}
-            placeholder="Dropbox 공유 링크를 붙여넣기..."
-            className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-sm"
-          />
+        {/* 모드 탭 */}
+        <div className="flex rounded-xl bg-slate-100 dark:bg-slate-700/50 p-1">
           <button
-            onClick={handleDropbox}
-            disabled={loading || !url.trim()}
-            className="w-full py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            type="button"
+            onClick={() => switchMode('gdrive')}
+            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+              mode === 'gdrive'
+                ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
           >
-            {loading ? '다운로드 중...' : 'DB 다운로드 & 로드'}
+            🔵 Google Drive
+          </button>
+          <button
+            type="button"
+            onClick={() => switchMode('dropbox')}
+            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+              mode === 'dropbox'
+                ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            ☁️ Dropbox
           </button>
         </div>
+
+        {/* Google Drive */}
+        {mode === 'gdrive' && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-lg border border-slate-200 dark:border-slate-700 space-y-3">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <span>🔵</span> Google Drive에서 로드
+            </h2>
+            <div className="space-y-2">
+              <label className="text-xs text-slate-500 dark:text-slate-400">폴더 ID</label>
+              <input
+                type="text"
+                value={folderId}
+                onChange={(e) => setFolderId(e.target.value)}
+                placeholder="Google Drive 폴더 ID"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-sm text-slate-800 dark:text-slate-200"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-slate-500 dark:text-slate-400">API Key</label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleGoogleDrive()}
+                placeholder="Google Cloud API Key"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-sm text-slate-800 dark:text-slate-200"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleGoogleDrive}
+              disabled={loading || !folderId.trim() || !apiKey.trim()}
+              className="w-full py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            >
+              {loading ? '다운로드 중...' : '최신 DB 다운로드 & 로드'}
+            </button>
+            <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
+              폴더를 &quot;링크가 있는 모든 사용자&quot;로 공유 설정해야 합니다.<br />
+              novelforge_*.db 파일 중 이름순 최신 파일을 자동으로 선택합니다.
+            </p>
+          </div>
+        )}
+
+        {/* Dropbox URL */}
+        {mode === 'dropbox' && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-lg border border-slate-200 dark:border-slate-700 space-y-3">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <span>☁️</span> Dropbox에서 로드
+            </h2>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleDropbox()}
+              placeholder="Dropbox 공유 링크를 붙여넣기..."
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-sm text-slate-800 dark:text-slate-200"
+            />
+            <button
+              type="button"
+              onClick={handleDropbox}
+              disabled={loading || !url.trim()}
+              className="w-full py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            >
+              {loading ? '다운로드 중...' : 'DB 다운로드 & 로드'}
+            </button>
+          </div>
+        )}
 
         {/* 로컬 파일 */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-lg border border-slate-200 dark:border-slate-700 space-y-3">

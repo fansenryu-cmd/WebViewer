@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Database } from 'sql.js';
-import { loadDbFromDropbox, loadDbFromFile } from '../db/loader';
+import { loadDbFromDropbox, loadDbFromFile, loadDbFromGoogleDrive } from '../db/loader';
 
 interface DbState {
   db: Database | null;
@@ -18,6 +18,7 @@ interface DbState {
   dbName: string | null;
   loadFromDropbox: (url: string, apiBase?: string) => Promise<void>;
   loadFromLocal: (file: File) => Promise<void>;
+  loadFromGoogleDrive: (folderId: string, apiKey: string) => Promise<void>;
 }
 
 const DbContext = createContext<DbState>({
@@ -27,6 +28,7 @@ const DbContext = createContext<DbState>({
   dbName: null,
   loadFromDropbox: async () => {},
   loadFromLocal: async () => {},
+  loadFromGoogleDrive: async () => {},
 });
 
 export function DbProvider({ children }: { children: ReactNode }) {
@@ -63,8 +65,22 @@ export function DbProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loadFromGoogleDrive = useCallback(async (folderId: string, apiKey: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { db: instance, fileName } = await loadDbFromGoogleDrive(folderId, apiKey);
+      setDb(instance);
+      setDbName(`Google Drive: ${fileName}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Google Drive DB 로드 실패');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return (
-    <DbContext.Provider value={{ db, loading, error, dbName, loadFromDropbox, loadFromLocal }}>
+    <DbContext.Provider value={{ db, loading, error, dbName, loadFromDropbox, loadFromLocal, loadFromGoogleDrive }}>
       {children}
     </DbContext.Provider>
   );
