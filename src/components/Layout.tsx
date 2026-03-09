@@ -9,6 +9,9 @@ const NAV_ITEMS = [
   { to: '/', icon: '📊', label: '대시보드' },
   { to: '/report', icon: '📰', label: '리포트' },
   { to: '/stats', icon: '📈', label: '통계' },
+  { to: '/views-growth', icon: '🚀', label: '성장' },
+  { to: '/compare', icon: '⚖️', label: '비교' },
+  { to: '/episode', icon: '📖', label: '에피소드' },
   { to: '/rookie-monitor', icon: '🖥️', label: '신작' },
   { to: '/title-analysis', icon: '🔤', label: '패턴' },
   { to: '/deep-analysis', icon: '🔬', label: '심층' },
@@ -56,14 +59,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* 메인 콘텐츠 */}
       <main className="flex-1 overflow-auto pb-16">{children}</main>
 
-      {/* 하단 네비게이션 */}
-      <nav className="fixed bottom-0 inset-x-0 z-30 bg-white/90 dark:bg-slate-800/90 backdrop-blur border-t border-slate-200 dark:border-slate-700 flex">
+      {/* 하단 네비게이션 (스크롤 가능) */}
+      <nav className="fixed bottom-0 inset-x-0 z-30 bg-white/90 dark:bg-slate-800/90 backdrop-blur border-t border-slate-200 dark:border-slate-700 flex overflow-x-auto scrollbar-hide">
         {NAV_ITEMS.map(({ to, icon, label }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center py-2 text-[10px] transition-colors ${
+              `flex-shrink-0 min-w-[56px] flex flex-col items-center py-2 px-1 text-[10px] transition-colors ${
                 isActive
                   ? 'text-blue-600 dark:text-blue-400 font-semibold'
                   : 'text-slate-500 dark:text-slate-400'

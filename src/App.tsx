@@ -12,6 +12,9 @@ import ArchiveSpiritPage from './pages/ArchiveSpiritPage';
 import RookieMonitorPage from './pages/RookieMonitorPage';
 import TitlePatternPage from './pages/TitlePatternPage';
 import DeepAnalysisPage from './pages/DeepAnalysisPage';
+import ViewsGrowthPage from './pages/ViewsGrowthPage';
+import MultiNovelComparePage from './pages/MultiNovelComparePage';
+import EpisodeAnalyzerPage from './pages/EpisodeAnalyzerPage';
 
 function AppRoutes() {
   const { db } = useDb();
@@ -24,6 +27,9 @@ function AppRoutes() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/report" element={<ReportPage />} />
         <Route path="/stats" element={<StatsPage />} />
+        <Route path="/views-growth" element={<ViewsGrowthPage />} />
+        <Route path="/compare" element={<MultiNovelComparePage />} />
+        <Route path="/episode" element={<EpisodeAnalyzerPage />} />
         <Route path="/spirit" element={<ArchiveSpiritPage />} />
         <Route path="/rookie-monitor" element={<RookieMonitorPage />} />
         <Route path="/title-analysis" element={<TitlePatternPage />} />

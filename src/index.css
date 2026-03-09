@@ -17,3 +17,12 @@
     @apply bg-slate-300 dark:bg-slate-600 rounded-full;
   }
 }
+
+/* 하단 네비 스크롤바 숨김 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
