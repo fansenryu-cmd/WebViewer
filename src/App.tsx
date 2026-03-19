@@ -15,6 +15,8 @@ import DeepAnalysisPage from './pages/DeepAnalysisPage';
 import ViewsGrowthPage from './pages/ViewsGrowthPage';
 import MultiNovelComparePage from './pages/MultiNovelComparePage';
 import EpisodeAnalyzerPage from './pages/EpisodeAnalyzerPage';
+import NovelLibraryPage from './pages/NovelLibraryPage';
+
 
 function AppRoutes() {
   const { db } = useDb();
@@ -34,6 +36,7 @@ function AppRoutes() {
         <Route path="/rookie-monitor" element={<RookieMonitorPage />} />
         <Route path="/title-analysis" element={<TitlePatternPage />} />
         <Route path="/deep-analysis" element={<DeepAnalysisPage />} />
+        <Route path="/library" element={<NovelLibraryPage />} />
       </Routes>
     </Layout>
   );

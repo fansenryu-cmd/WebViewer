@@ -445,6 +445,167 @@ export function getMunpiaDetailData(
   );
 }
 
+// ─── 롱텀 분석 쿼리 ───
+
+/** 롱텀: 랭킹 체류 분석용 데이터 (기간 내 전체 랭킹) */
+export function getRankingDataSince(
+  db: Database,
+  sinceDate: string,
+): Array<{ title: string; platform: string; ranking_date: string; rank: number; author: string; genre: string }> {
+  return queryAll<{ title: string; platform: string; ranking_date: string; rank: number; author: string; genre: string }>(
+    db,
+    `SELECT title, platform, ranking_date, rank, COALESCE(author,'') as author, COALESCE(genre,'') as genre
+     FROM daily_rankings
+     WHERE ranking_date >= ?
+       AND ranking_type NOT IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')
+     ORDER BY title, platform, ranking_date ASC`,
+    [sinceDate],
+  );
+}
+
+/** 롱텀: 월별 장르 카운트 */
+export function getMonthlyGenreCounts(
+  db: Database,
+  sinceDate: string,
+): Array<{ month: string; genre: string; cnt: number }> {
+  return queryAll<{ month: string; genre: string; cnt: number }>(
+    db,
+    `SELECT strftime('%Y-%m', ranking_date) AS month, genre, COUNT(id) AS cnt
+     FROM daily_rankings
+     WHERE ranking_date >= ?
+       AND genre IS NOT NULL AND genre != ''
+       AND ranking_type NOT IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')
+     GROUP BY month, genre
+     ORDER BY month ASC`,
+    [sinceDate],
+  );
+}
+
+/** 롱텀: 월별 출판사 카운트 */
+export function getMonthlyPublisherCounts(
+  db: Database,
+  sinceDate: string,
+): Array<{ month: string; publisher: string; cnt: number }> {
+  return queryAll<{ month: string; publisher: string; cnt: number }>(
+    db,
+    `SELECT strftime('%Y-%m', ranking_date) AS month, publisher, COUNT(id) AS cnt
+     FROM daily_rankings
+     WHERE ranking_date >= ?
+       AND publisher IS NOT NULL AND publisher != '' AND publisher != '알 수 없음'
+       AND ranking_type NOT IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')
+     GROUP BY month, publisher
+     ORDER BY month ASC`,
+    [sinceDate],
+  );
+}
+
+/** 롱텀: 작가 일별 작품 목록 */
+export function getAuthorDailyTitles(
+  db: Database,
+  sinceDate: string,
+): Array<{ author: string; ranking_date: string; title: string }> {
+  return queryAll<{ author: string; ranking_date: string; title: string }>(
+    db,
+    `SELECT author, ranking_date, title
+     FROM daily_rankings
+     WHERE ranking_date >= ?
+       AND author IS NOT NULL AND author != '' AND author != '알 수 없음'
+       AND ranking_type NOT IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')
+     ORDER BY author, ranking_date ASC`,
+    [sinceDate],
+  );
+}
+
+/** 롱텀: 프로모션 분석용 일일 통계 */
+export function getPromotionStats(
+  db: Database,
+  sinceDate: string,
+): Array<{ novel_id: number; date: string; views: number; promotion_active: number; promotion_note: string; promotion_tags: string; title: string; platform: string }> {
+  return queryAll<{ novel_id: number; date: string; views: number; promotion_active: number; promotion_note: string; promotion_tags: string; title: string; platform: string }>(
+    db,
+    `SELECT ds.novel_id, ds.date, ds.views,
+            COALESCE(ds.promotion_active, 0) as promotion_active,
+            COALESCE(ds.promotion_note, '') as promotion_note,
+            COALESCE(ds.promotion_tags, '') as promotion_tags,
+            mn.title, COALESCE(mn.platform, '') as platform
+     FROM daily_statistics ds
+     JOIN management_novels mn ON ds.novel_id = mn.id
+     WHERE ds.date >= ? AND ds.views IS NOT NULL
+     ORDER BY ds.novel_id, ds.date ASC`,
+    [sinceDate],
+  );
+}
+
+/** 롱텀: 요일별 랭킹 카운트 */
+export function getDayOfWeekRankingCounts(
+  db: Database,
+  sinceDate: string,
+): Array<{ dow: string; ranking_date: string; cnt: number }> {
+  return queryAll<{ dow: string; ranking_date: string; cnt: number }>(
+    db,
+    `SELECT strftime('%w', ranking_date) AS dow, ranking_date, COUNT(id) AS cnt
+     FROM daily_rankings
+     WHERE ranking_date >= ?
+       AND ranking_type NOT IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')
+     GROUP BY dow, ranking_date`,
+    [sinceDate],
+  );
+}
+
+/** 롱텀: 월별 조회수 볼륨 */
+export function getMonthlyViewsVolume(
+  db: Database,
+  sinceDate: string,
+): Array<{ month: string; total_views: number; novel_count: number; entry_count: number }> {
+  return queryAll<{ month: string; total_views: number; novel_count: number; entry_count: number }>(
+    db,
+    `SELECT strftime('%Y-%m', date) AS month,
+            SUM(views) AS total_views,
+            COUNT(DISTINCT novel_id) AS novel_count,
+            COUNT(id) AS entry_count
+     FROM daily_statistics
+     WHERE date >= ?
+     GROUP BY month
+     ORDER BY month ASC`,
+    [sinceDate],
+  );
+}
+
+/** 롱텀: 월별 랭킹 진입 작품수 */
+export function getMonthlyRankingCounts(
+  db: Database,
+  sinceDate: string,
+): Array<{ month: string; unique_titles: number; total_entries: number }> {
+  return queryAll<{ month: string; unique_titles: number; total_entries: number }>(
+    db,
+    `SELECT strftime('%Y-%m', ranking_date) AS month,
+            COUNT(DISTINCT title) AS unique_titles,
+            COUNT(id) AS total_entries
+     FROM daily_rankings
+     WHERE ranking_date >= ?
+       AND ranking_type NOT IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')
+     GROUP BY month
+     ORDER BY month ASC`,
+    [sinceDate],
+  );
+}
+
+/** 롱텀: 키워드 트렌드용 월별 제목+순위 */
+export function getMonthlyTitlesWithRank(
+  db: Database,
+  sinceDate: string,
+): Array<{ month: string; title: string; rank: number }> {
+  return queryAll<{ month: string; title: string; rank: number }>(
+    db,
+    `SELECT strftime('%Y-%m', ranking_date) AS month, title, rank
+     FROM daily_rankings
+     WHERE ranking_date >= ?
+       AND title IS NOT NULL AND title != ''
+       AND ranking_type NOT IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')`,
+    [sinceDate],
+  );
+}
+
 /** 소설ID→장르 매핑 (ManagementNovel.genre 우선, DailyRanking.genre 보충) */
 export function getNovelGenreMap(db: Database): Map<number, string> {
   const map = new Map<number, string>();

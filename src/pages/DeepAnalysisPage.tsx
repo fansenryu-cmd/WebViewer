@@ -21,6 +21,14 @@ import {
   analyzeConversionFunnel,
 } from '../services/deepAnalysisService';
 import {
+  analyzeRankingTenure,
+  analyzeGenreEcosystem,
+  analyzePublisherMarket,
+  analyzePromotionEffect,
+  analyzeSeasonality,
+  analyzeKeywordTrend,
+} from '../services/longTermAnalysisService';
+import {
   LineChart,
   Line,
   AreaChart,
@@ -41,14 +49,16 @@ import { formatViews } from '../utils/format';
 
 /* ─── Types ─── */
 
-type Tab = 'timeseries' | 'survival-market' | 'panel-growth' | 'text-network' | 'cross-conversion';
+type Tab = 'timeseries' | 'ranking-survival' | 'market-publisher' | 'panel-growth' | 'text-keyword' | 'genre-cross' | 'conversion-promo';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'timeseries', label: '시계열', icon: '📈' },
-  { key: 'survival-market', label: '생존·시장', icon: '🏥' },
-  { key: 'panel-growth', label: '패널·성장', icon: '📊' },
-  { key: 'text-network', label: '텍스트', icon: '🔤' },
-  { key: 'cross-conversion', label: '교차·전환', icon: '🔄' },
+  { key: 'ranking-survival', label: '랭킹', icon: '🏆' },
+  { key: 'market-publisher', label: '시장', icon: '📊' },
+  { key: 'panel-growth', label: '패널', icon: '📉' },
+  { key: 'text-keyword', label: '텍스트', icon: '📝' },
+  { key: 'genre-cross', label: '장르', icon: '🌿' },
+  { key: 'conversion-promo', label: '전환', icon: '💰' },
 ];
 
 const CHART_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
@@ -76,6 +86,14 @@ function ErrorBlock({ error }: { error: string }) {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{children}</h3>;
+}
+
+function LongTermDivider({ label }: { label: string }) {
+  return (
+    <div className="border-t-2 border-dashed border-indigo-200 dark:border-indigo-800 my-4 pt-2">
+      <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-medium">📊 롱텀 · {label}</p>
+    </div>
+  );
 }
 
 const tooltipStyle = {
@@ -129,11 +147,49 @@ export default function DeepAnalysisPage() {
       </div>
 
       {/* Tab content */}
-      {subTab === 'timeseries' && <TimeSeriesSection db={db} />}
-      {subTab === 'survival-market' && <SurvivalMarketSection db={db} />}
+      {subTab === 'timeseries' && (
+        <>
+          <TimeSeriesSection db={db} />
+          <LongTermDivider label="계절성/주기성" />
+          <SeasonalitySection db={db} />
+        </>
+      )}
+      {subTab === 'ranking-survival' && (
+        <>
+          <SurvivalMarketSection db={db} mode="survival" />
+          <LongTermDivider label="랭킹 체류 분석" />
+          <RankingTenureSection db={db} />
+        </>
+      )}
+      {subTab === 'market-publisher' && (
+        <>
+          <SurvivalMarketSection db={db} mode="market" />
+          <LongTermDivider label="출판사/작가 시장 점유율" />
+          <PublisherMarketSection db={db} />
+        </>
+      )}
       {subTab === 'panel-growth' && <PanelGrowthSection />}
-      {subTab === 'text-network' && <TextNetworkSection db={db} />}
-      {subTab === 'cross-conversion' && <CrossConversionSection db={db} />}
+      {subTab === 'text-keyword' && (
+        <>
+          <TextNetworkSection db={db} />
+          <LongTermDivider label="키워드 트렌드 진화" />
+          <KeywordTrendSection db={db} />
+        </>
+      )}
+      {subTab === 'genre-cross' && (
+        <>
+          <CrossConversionSection db={db} mode="cross" />
+          <LongTermDivider label="장르 생태계 변화" />
+          <GenreEcosystemSection db={db} />
+        </>
+      )}
+      {subTab === 'conversion-promo' && (
+        <>
+          <CrossConversionSection db={db} mode="funnel" />
+          <LongTermDivider label="프로모션 효과 계량화" />
+          <PromotionEffectSection db={db} />
+        </>
+      )}
     </div>
   );
 }
@@ -363,7 +419,7 @@ function TimeSeriesSection({ db }: { db: import('sql.js').Database }) {
    2. 생존·시장 (SurvivalMarketSection)
    ═══════════════════════════════════════════ */
 
-function SurvivalMarketSection({ db }: { db: import('sql.js').Database }) {
+function SurvivalMarketSection({ db, mode }: { db: import('sql.js').Database; mode?: 'survival' | 'market' }) {
   const [survivalGroup, setSurvivalGroup] = useState<'platform' | 'genre'>('platform');
   const [marketDim, setMarketDim] = useState<'publisher' | 'genre' | 'platform'>('publisher');
 
@@ -380,7 +436,7 @@ function SurvivalMarketSection({ db }: { db: import('sql.js').Database }) {
   return (
     <div className="space-y-4">
       {/* Survival */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+      {(!mode || mode === 'survival') && <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
         <SectionTitle>랭킹 생존 분석 (Kaplan-Meier)</SectionTitle>
         <div className="flex gap-2 mb-3">
           {(['platform', 'genre'] as const).map((g) => (
@@ -458,10 +514,10 @@ function SurvivalMarketSection({ db }: { db: import('sql.js').Database }) {
         ) : (
           <p className="text-center text-slate-400 dark:text-slate-500 py-8 text-xs">생존 분석 데이터가 없습니다</p>
         )}
-      </div>
+      </div>}
 
       {/* Market Concentration */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+      {(!mode || mode === 'market') && <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
         <SectionTitle>시장 집중도 (HHI / Gini)</SectionTitle>
         <div className="flex gap-1 mb-3">
           {([
@@ -571,7 +627,7 @@ function SurvivalMarketSection({ db }: { db: import('sql.js').Database }) {
         ) : (
           <p className="text-center text-slate-400 dark:text-slate-500 py-8 text-xs">시장 집중도 데이터가 없습니다</p>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -774,14 +830,14 @@ function TextNetworkSection({ db }: { db: import('sql.js').Database }) {
    5. 교차·전환 (CrossConversionSection)
    ═══════════════════════════════════════════ */
 
-function CrossConversionSection({ db }: { db: import('sql.js').Database }) {
+function CrossConversionSection({ db, mode }: { db: import('sql.js').Database; mode?: 'cross' | 'funnel' }) {
   const cross = useMemo(() => analyzeCrossPlatform(db), [db]);
   const funnel = useMemo(() => analyzeConversionFunnel(db), [db]);
 
   return (
     <div className="space-y-4">
       {/* Genre x Platform Heatmap */}
-      {cross.error ? (
+      {(!mode || mode === 'cross') && (cross.error ? (
         <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
           <ErrorBlock error={cross.error} />
         </div>
@@ -878,10 +934,10 @@ function CrossConversionSection({ db }: { db: import('sql.js').Database }) {
             </div>
           )}
         </>
-      ) : null}
+      ) : null)}
 
       {/* Conversion Funnel */}
-      {funnel.error ? (
+      {(!mode || mode === 'funnel') && (funnel.error ? (
         <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
           <SectionTitle>전환 퍼널</SectionTitle>
           <ErrorBlock error={funnel.error} />
@@ -1035,7 +1091,7 @@ function CrossConversionSection({ db }: { db: import('sql.js').Database }) {
             )}
           </div>
         </div>
-      ) : null}
+      ) : null)}
     </div>
   );
 }
@@ -1112,6 +1168,205 @@ function HeatmapTable({ data }: { data: Array<{ genre: string; platform: string;
       {genres.length > 10 && (
         <p className="text-[10px] text-slate-400 mt-1">... 외 {genres.length - 10}개 장르</p>
       )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   롱텀 분석 섹션 컴포넌트들
+   ═══════════════════════════════════════════ */
+
+function SeasonalitySection({ db }: { db: import('sql.js').Database }) {
+  const result = useMemo(() => analyzeSeasonality(db, 12), [db]);
+  if (result.error) return <ErrorBlock error={result.error} />;
+  if (!result.data) return null;
+  const d = result.data;
+  return (
+    <div className="space-y-3">
+      {d.day_of_week?.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+          <SectionTitle>요일별 평균 랭킹 진입수</SectionTitle>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={d.day_of_week}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip {...tooltipStyle} /><Bar dataKey="avg_entries" fill="#6366f1"></ Bar></BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      {d.quarterly_growth?.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+          <SectionTitle>분기별 성장률</SectionTitle>
+          <div className="grid grid-cols-2 gap-2">
+            {d.quarterly_growth.map((q: any, i: number) => (
+              <StatBox key={i} label={q.quarter} value={`${q.growth_pct >= 0 ? '+' : ''}${q.growth_pct}%`} sub={`조회수 ${formatViews(q.total_views)}`} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RankingTenureSection({ db }: { db: import('sql.js').Database }) {
+  const result = useMemo(() => analyzeRankingTenure(db, 6), [db]);
+  if (result.error) return <ErrorBlock error={result.error} />;
+  if (!result.data) return null;
+  const d = result.data;
+  return (
+    <div className="space-y-3">
+      <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+        <SectionTitle>랭킹 체류 티어 분포</SectionTitle>
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <StatBox label="1~3일" value={d.tier_distribution?.['1_to_3_days'] ?? 0} sub="단기" />
+          <StatBox label="4~7일" value={d.tier_distribution?.['4_to_7_days'] ?? 0} sub="단기" />
+          <StatBox label="8~14일" value={d.tier_distribution?.['8_to_14_days'] ?? 0} sub="중기" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <StatBox label="15~30일" value={d.tier_distribution?.['15_to_30_days'] ?? 0} sub="장기" />
+          <StatBox label="31일+" value={d.tier_distribution?.['31_plus_days'] ?? 0} sub="스테디셀러" />
+        </div>
+      </div>
+      {d.top_novels?.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+          <SectionTitle>TOP 체류 작품</SectionTitle>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[10px]">
+              <thead><tr className="border-b border-slate-200 dark:border-slate-700 text-slate-500"><th className="text-left p-1">작품</th><th className="text-right p-1">체류일</th><th className="text-right p-1">연속</th><th className="text-right p-1">최고</th></tr></thead>
+              <tbody>
+                {d.top_novels.slice(0, 15).map((n: any, i: number) => (
+                  <tr key={i} className="border-b border-slate-100 dark:border-slate-700/50">
+                    <td className="p-1 truncate max-w-[120px] text-slate-800 dark:text-slate-200">{n.title}</td>
+                    <td className="p-1 text-right font-bold text-indigo-600 dark:text-indigo-400">{n.total_days}</td>
+                    <td className="p-1 text-right text-emerald-600">{n.max_streak}</td>
+                    <td className="p-1 text-right">{n.best_rank}위</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PublisherMarketSection({ db }: { db: import('sql.js').Database }) {
+  const result = useMemo(() => analyzePublisherMarket(db, 12), [db]);
+  if (result.error) return <ErrorBlock error={result.error} />;
+  if (!result.data) return null;
+  const d = result.data;
+  return (
+    <div className="space-y-3">
+      {d.hhi_trend?.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+          <SectionTitle>시장 집중도 추이 (HHI)</SectionTitle>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <StatBox label="최근 HHI" value={d.hhi_trend[d.hhi_trend.length - 1]?.hhi ?? '-'} />
+            <StatBox label="CR3" value={`${d.hhi_trend[d.hhi_trend.length - 1]?.cr3 ?? '-'}%`} />
+            <StatBox label="CR5" value={`${d.hhi_trend[d.hhi_trend.length - 1]?.cr5 ?? '-'}%`} />
+          </div>
+        </div>
+      )}
+      {d.prolific_authors?.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+          <SectionTitle>다작 작가 (2+작품 동시 랭킹)</SectionTitle>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[10px]">
+              <thead><tr className="border-b border-slate-200 dark:border-slate-700 text-slate-500"><th className="text-left p-1">작가</th><th className="text-right p-1">작품수</th><th className="text-right p-1">동시비율</th></tr></thead>
+              <tbody>
+                {d.prolific_authors.slice(0, 10).map((a: any, i: number) => (
+                  <tr key={i} className="border-b border-slate-100 dark:border-slate-700/50">
+                    <td className="p-1 text-slate-800 dark:text-slate-200">{a.author}</td>
+                    <td className="p-1 text-right font-bold text-indigo-600">{a.unique_titles}</td>
+                    <td className="p-1 text-right text-amber-600">{a.multi_ratio}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KeywordTrendSection({ db }: { db: import('sql.js').Database }) {
+  const result = useMemo(() => analyzeKeywordTrend(db, 12, 20), [db]);
+  if (result.error) return <ErrorBlock error={result.error} />;
+  if (!result.data) return null;
+  const d = result.data;
+  return (
+    <div className="space-y-3">
+      {(d.rising?.length > 0 || d.falling?.length > 0) && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+          <SectionTitle>급상승 / 하락 키워드</SectionTitle>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-[10px] text-emerald-600 font-semibold mb-1">🔥 급상승</p>
+              {(d.rising || []).slice(0, 5).map((k: any, i: number) => (
+                <div key={i} className="flex justify-between text-[10px] py-0.5"><span className="text-slate-700 dark:text-slate-300">{k.keyword}</span><span className="text-emerald-600 font-bold">+{k.change_pct}%</span></div>
+              ))}
+            </div>
+            <div>
+              <p className="text-[10px] text-red-600 font-semibold mb-1">📉 하락</p>
+              {(d.falling || []).slice(0, 5).map((k: any, i: number) => (
+                <div key={i} className="flex justify-between text-[10px] py-0.5"><span className="text-slate-700 dark:text-slate-300">{k.keyword}</span><span className="text-red-600 font-bold">{k.change_pct}%</span></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GenreEcosystemSection({ db }: { db: import('sql.js').Database }) {
+  const result = useMemo(() => analyzeGenreEcosystem(db, 12), [db]);
+  if (result.error) return <ErrorBlock error={result.error} />;
+  if (!result.data) return null;
+  const d = result.data;
+  return (
+    <div className="space-y-3">
+      {(d.rising_genres?.length > 0 || d.declining_genres?.length > 0) && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+          <SectionTitle>신흥 / 쇠퇴 장르</SectionTitle>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-[10px] text-emerald-600 font-semibold mb-1">📈 신흥</p>
+              {(d.rising_genres || []).map((g: any, i: number) => (
+                <div key={i} className="flex justify-between text-[10px] py-0.5"><span className="text-slate-700 dark:text-slate-300">{g.genre}</span><span className="text-emerald-600 font-bold">+{g.change_pct}%</span></div>
+              ))}
+            </div>
+            <div>
+              <p className="text-[10px] text-red-600 font-semibold mb-1">📉 쇠퇴</p>
+              {(d.declining_genres || []).map((g: any, i: number) => (
+                <div key={i} className="flex justify-between text-[10px] py-0.5"><span className="text-slate-700 dark:text-slate-300">{g.genre}</span><span className="text-red-600 font-bold">{g.change_pct}%</span></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PromotionEffectSection({ db }: { db: import('sql.js').Database }) {
+  const result = useMemo(() => analyzePromotionEffect(db, 12), [db]);
+  if (result.error) return <ErrorBlock error={result.error} />;
+  if (!result.data) return null;
+  const d = result.data;
+  return (
+    <div className="space-y-3">
+      <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+        <SectionTitle>프로모션 효과 요약</SectionTitle>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <StatBox label="프로모션 이벤트" value={d.overall_summary?.total_events ?? 0} />
+          <StatBox label="평균 lift" value={`${d.overall_summary?.avg_lift_pct ?? 0}%`} />
+          <StatBox label="효과 있음" value={d.overall_summary?.positive_events ?? 0} sub="조회수 상승" />
+          <StatBox label="역효과" value={d.overall_summary?.negative_events ?? 0} sub="조회수 하락" />
+        </div>
+        {d.overall_summary?.total_events === 0 && (
+          <p className="text-center text-slate-400 text-xs py-4">프로모션 데이터가 없습니다.</p>
+        )}
+      </div>
     </div>
   );
 }

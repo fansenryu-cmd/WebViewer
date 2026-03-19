@@ -7,6 +7,7 @@ import { useDb } from '../hooks/useDb';
 
 const NAV_ITEMS = [
   { to: '/', icon: '📊', label: '대시보드' },
+  { to: '/library', icon: '📚', label: '라이브러리' },
   { to: '/report', icon: '📰', label: '리포트' },
   { to: '/stats', icon: '📈', label: '통계' },
   { to: '/views-growth', icon: '🚀', label: '성장' },
