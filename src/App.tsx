@@ -16,6 +16,8 @@ import ViewsGrowthPage from './pages/ViewsGrowthPage';
 import MultiNovelComparePage from './pages/MultiNovelComparePage';
 import EpisodeAnalyzerPage from './pages/EpisodeAnalyzerPage';
 import NovelLibraryPage from './pages/NovelLibraryPage';
+import TrendInfographicPage from './pages/TrendInfographicPage';
+import LongTermAnalysisPage from './pages/LongTermAnalysisPage';
 
 
 function AppRoutes() {
@@ -37,6 +39,8 @@ function AppRoutes() {
         <Route path="/title-analysis" element={<TitlePatternPage />} />
         <Route path="/deep-analysis" element={<DeepAnalysisPage />} />
         <Route path="/library" element={<NovelLibraryPage />} />
+        <Route path="/trend-infographic" element={<TrendInfographicPage />} />
+        <Route path="/long-term-analysis" element={<LongTermAnalysisPage />} />
       </Routes>
     </Layout>
   );

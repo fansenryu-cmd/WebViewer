@@ -50,18 +50,35 @@ export function extractTitlePatterns(titles: string[]): TitlePatternResult {
   // 단어 추출용 정규식
   const wordRe = /[가-힣a-zA-Z]{2,}/g;
 
+  // 부분 문자열 중복 방지를 위해 긴 패턴 먼저 매칭
+  const sortedMods = [...MODIFIER_PATTERNS].sort((a, b) => b.length - a.length);
+  const sortedJobs = [...JOB_PATTERNS].sort((a, b) => b.length - a.length);
+  const sortedActs = [...ACTION_PATTERNS].sort((a, b) => b.length - a.length);
+
   for (const title of titles) {
     if (!title) continue;
 
-    // 패턴 매칭
-    for (const mod of MODIFIER_PATTERNS) {
-      if (title.includes(mod)) modCount.set(mod, (modCount.get(mod) ?? 0) + 1);
+    // 패턴 매칭 (긴 것 먼저, 매칭 시 제거하여 부분문자열 중복 방지)
+    let remaining = title;
+    for (const mod of sortedMods) {
+      if (remaining.includes(mod)) {
+        modCount.set(mod, (modCount.get(mod) ?? 0) + 1);
+        remaining = remaining.replace(mod, '');
+      }
     }
-    for (const job of JOB_PATTERNS) {
-      if (title.includes(job)) jobCount.set(job, (jobCount.get(job) ?? 0) + 1);
+    remaining = title; // 직업/행동은 독립적으로 매칭
+    for (const job of sortedJobs) {
+      if (remaining.includes(job)) {
+        jobCount.set(job, (jobCount.get(job) ?? 0) + 1);
+        remaining = remaining.replace(job, '');
+      }
     }
-    for (const act of ACTION_PATTERNS) {
-      if (title.includes(act)) actCount.set(act, (actCount.get(act) ?? 0) + 1);
+    remaining = title;
+    for (const act of sortedActs) {
+      if (remaining.includes(act)) {
+        actCount.set(act, (actCount.get(act) ?? 0) + 1);
+        remaining = remaining.replace(act, '');
+      }
     }
 
     // 기타 키워드 (패턴에 없는 2글자 이상 단어)
