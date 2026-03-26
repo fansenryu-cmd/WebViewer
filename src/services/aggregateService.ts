@@ -79,8 +79,17 @@ function aggregateSeries(seriesList: SeriesPoint[][]): SeriesPoint[] {
 export function getAggregateStats(
   db: Database,
   myNovelId?: number,
-): { byPlatform: Record<string, PlatformAggregate>; platforms: string[] } {
-  const novels = getAllNovels(db);
+  launchAfter?: string,
+): { byPlatform: Record<string, PlatformAggregate>; platforms: string[]; filteredCount: number } {
+  let novels = getAllNovels(db);
+
+  // 기간 필터: launchAfter가 주어지면 해당 월 이후 런칭 작품만 포함
+  if (launchAfter) {
+    const cutoff = `${launchAfter}-01`;
+    novels = novels.filter((n) => n.launch_date && n.launch_date >= cutoff);
+  }
+
+  const filteredCount = novels.length;
   const byPlatform: Record<string, PlatformAggregate> = {};
 
   // 플랫폼별 그룹핑
@@ -138,5 +147,5 @@ export function getAggregateStats(
   // 플랫폼 순서
   const platforms = PLATFORM_ORDER.filter((p) => byPlatform[p]);
 
-  return { byPlatform, platforms };
+  return { byPlatform, platforms, filteredCount };
 }

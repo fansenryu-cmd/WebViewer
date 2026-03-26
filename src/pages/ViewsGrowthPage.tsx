@@ -380,6 +380,8 @@ export default function ViewsGrowthPage() {
   const { db } = useDb();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [section2BucketIndex, setSection2BucketIndex] = useState(DEFAULT_BUCKET_INDEX);
+  const [periodFilterEnabled, setPeriodFilterEnabled] = useState(false);
+  const [launchAfter, setLaunchAfter] = useState('');
 
   // ---- Base data ----
   const novels = useMemo(() => {
@@ -437,8 +439,9 @@ export default function ViewsGrowthPage() {
   // ---- Section 2: Aggregate stats ----
   const aggregate = useMemo(() => {
     if (!db) return null;
-    return getAggregateStats(db, selectedId ?? undefined);
-  }, [db, selectedId]);
+    const la = periodFilterEnabled && launchAfter ? launchAfter : undefined;
+    return getAggregateStats(db, selectedId ?? undefined, la);
+  }, [db, selectedId, periodFilterEnabled, launchAfter]);
 
   const platformAggregate = useMemo<PlatformAggregate | null>(() => {
     if (!aggregate) return null;
@@ -661,15 +664,52 @@ export default function ViewsGrowthPage() {
           {/* SECTION 2: 통합 통계 (플랫폼 퍼센타일)                          */}
           {/* ============================================================= */}
           <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-3">
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1 flex items-center">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1 flex items-center flex-wrap gap-y-1">
               <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-[10px] font-bold mr-2">
                 2
               </span>
-              통합 통계
-              <span className="ml-2 text-xs text-purple-600 dark:text-purple-400 font-normal">
-                [{platform}] 퍼센타일 비교
-              </span>
+              {periodFilterEnabled && launchAfter ? (
+                <span>
+                  기간 통합 통계
+                  <span className="ml-1 text-xs text-purple-600 dark:text-purple-400 font-normal">
+                    — {launchAfter.split('-')[0]}년 {parseInt(launchAfter.split('-')[1], 10)}월 이후 런칭 작품 비교
+                  </span>
+                </span>
+              ) : (
+                <>
+                  통합 통계
+                  <span className="ml-2 text-xs text-purple-600 dark:text-purple-400 font-normal">
+                    [{platform}] 퍼센타일 비교
+                  </span>
+                </>
+              )}
             </h3>
+
+            {/* 기간 필터 UI */}
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={periodFilterEnabled}
+                  onChange={(e) => setPeriodFilterEnabled(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-purple-600 focus:ring-purple-500 dark:bg-slate-700"
+                />
+                기간 필터
+              </label>
+              {periodFilterEnabled && (
+                <input
+                  type="month"
+                  value={launchAfter}
+                  onChange={(e) => setLaunchAfter(e.target.value)}
+                  className="text-xs px-2 py-0.5 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                />
+              )}
+              {periodFilterEnabled && launchAfter && aggregate && (
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                  비교 대상: {aggregate.filteredCount}개 작품
+                </span>
+              )}
+            </div>
 
             {platformAggregate?.percentileTop != null && (
               <p className="text-xs mb-2">
