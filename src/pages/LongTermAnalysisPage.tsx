@@ -98,9 +98,31 @@ function RankingTab({ data }: { data: any }) {
         </div>
       )}
 
+      {data.recent_top_novels?.length > 0 && (
+        <div>
+          <SectionTitle>최근 3개월 TOP 20</SectionTitle>
+          <div className="space-y-1.5">
+            {data.recent_top_novels.map((n: any, i: number) => (
+              <div key={i} className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-lg p-2 text-xs">
+                <div className="flex-1 min-w-0">
+                  <span className="text-slate-400 mr-1">{i + 1}.</span>
+                  <span className="font-medium text-slate-900 dark:text-white truncate">{n.title}</span>
+                  <span className="text-[10px] text-slate-400 ml-1">{n.platform}</span>
+                </div>
+                <div className="flex gap-2 text-[10px] flex-shrink-0 ml-2">
+                  <span className="text-indigo-600 dark:text-indigo-400 font-bold">{n.total_days}일</span>
+                  <span className="text-amber-600 dark:text-amber-400">🔥{n.max_streak}</span>
+                  <span className="text-slate-500">{n.best_rank}위</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {data.top_novels?.length > 0 && (
         <div>
-          <SectionTitle>TOP 랭킹 체류 작품</SectionTitle>
+          <SectionTitle>TOP 랭킹 체류 작품 (전체)</SectionTitle>
           <div className="space-y-1.5">
             {data.top_novels.slice(0, 15).map((n: any, i: number) => (
               <div key={i} className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-lg p-2 text-xs">
@@ -210,10 +232,24 @@ function PublisherTab({ data }: { data: any }) {
         <div>
           <SectionTitle>다작 작가 (2+작품 동시 랭킹)</SectionTitle>
           {data.prolific_authors.slice(0, 10).map((a: any, i: number) => (
-            <div key={i} className="flex justify-between bg-white dark:bg-slate-800 rounded p-2 text-xs mb-1">
-              <span className="font-medium truncate flex-1">{a.author}</span>
-              <span className="text-indigo-600 dark:text-indigo-400 font-bold ml-2">{a.unique_titles}작품</span>
-              <span className="text-slate-500 ml-2">{a.multi_ranking_days}일</span>
+            <div key={i} className="bg-white dark:bg-slate-800 rounded p-2 text-xs mb-1">
+              <div className="flex justify-between">
+                <span className="font-medium truncate flex-1">{a.author}</span>
+                <span className="text-indigo-600 dark:text-indigo-400 font-bold ml-2">{a.unique_titles}작품</span>
+                <span className="text-slate-500 ml-2">{a.multi_ranking_days}일</span>
+              </div>
+              {a.titles?.length > 0 && (
+                <div className="mt-1 pl-2 space-y-0.5">
+                  {a.titles.map((t: string, j: number) => (
+                    <div key={j} className="flex items-center text-[10px] text-slate-500 dark:text-slate-400">
+                      <span className="truncate">{t}</span>
+                      {data.title_launch_dates?.[t] && (
+                        <span className="ml-1 text-slate-400 dark:text-slate-500 flex-shrink-0">({data.title_launch_dates[t]})</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -269,6 +305,7 @@ function PromotionTab({ data }: { data: any }) {
 }
 
 function SeasonTab({ data }: { data: any }) {
+  const [expandedDay, setExpandedDay] = useState<number | null>(null);
   if (!data) return null;
   return (
     <div className="space-y-4">
@@ -288,6 +325,54 @@ function SeasonTab({ data }: { data: any }) {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      )}
+
+      {data.day_of_week_detail?.length > 0 && (
+        <div>
+          <SectionTitle>요일별 플랫폼/장르 상세</SectionTitle>
+          <div className="space-y-1">
+            {data.day_of_week_detail.map((d: any) => {
+              const isExpanded = expandedDay === d.day_index;
+              const platformEntries = Object.entries(d.platforms || {}) as [string, any][];
+              const totalAll = platformEntries.reduce((s, [, v]) => s + (v?.total || 0), 0);
+              return (
+                <div key={d.day_index}>
+                  <button
+                    onClick={() => setExpandedDay(isExpanded ? null : d.day_index)}
+                    className="w-full flex items-center justify-between bg-white dark:bg-slate-800 rounded p-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700/70 transition-colors"
+                  >
+                    <span className="font-medium">{d.day}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500">{platformEntries.length}개 플랫폼 / {totalAll}건</span>
+                      <span className="text-slate-400">{isExpanded ? '▲' : '▼'}</span>
+                    </div>
+                  </button>
+                  {isExpanded && platformEntries.length > 0 && (
+                    <div className="ml-2 mt-1 space-y-1.5 mb-2">
+                      {platformEntries
+                        .sort(([, a], [, b]) => (b?.total || 0) - (a?.total || 0))
+                        .map(([platform, info]) => (
+                        <div key={platform} className="bg-slate-50 dark:bg-slate-700/40 rounded p-2">
+                          <div className="flex justify-between text-[11px] font-medium mb-1">
+                            <span style={{ color: PLATFORM_COLORS[platform] || '#6366f1' }}>{platform}</span>
+                            <span className="text-slate-500">{info.total}건</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {(info.genres || []).slice(0, 6).map((g: any, gi: number) => (
+                              <span key={gi} className="inline-block bg-white dark:bg-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-600 dark:text-slate-300">
+                                {g.genre} <span className="text-slate-400">{g.share}%</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

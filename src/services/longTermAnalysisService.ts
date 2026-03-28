@@ -17,9 +17,11 @@ import {
   getAuthorDailyTitles,
   getPromotionStats,
   getDayOfWeekRankingCounts,
+  getDayOfWeekRankingDetail,
   getMonthlyViewsVolume,
   getMonthlyRankingCounts,
   getMonthlyTitlesWithRank,
+  getTitleLaunchDates,
 } from '../db/queries';
 
 // ─── 공통 ───
@@ -134,9 +136,16 @@ export function analyzeRankingTenure(db: Database, months = 6): AnalysisResult<a
     total_novels: allDays.length,
   };
 
+  // 최근 3개월 내 활동한 TOP 20
+  const recentCutoff = daysAgo(90);
+  const recentTopNovels = topNovels
+    .filter(n => n.last_seen >= recentCutoff)
+    .sort((a, b) => b.total_days - a.total_days)
+    .slice(0, 20);
+
   return {
     error: null,
-    data: { top_novels: top50, platform_averages: platformAverages, tier_distribution: tierDistribution, period_months: months },
+    data: { top_novels: top50, recent_top_novels: recentTopNovels, platform_averages: platformAverages, tier_distribution: tierDistribution, period_months: months },
   };
 }
 
@@ -315,9 +324,20 @@ export function analyzePublisherMarket(db: Database, months = 12): AnalysisResul
   }
   prolificAuthors.sort((a, b) => b.multi_ranking_days - a.multi_ranking_days);
 
+  // 다작 작가 대표 작품의 launch_date 조회
+  const allTitles = new Set<string>();
+  for (const a of prolificAuthors.slice(0, 20)) {
+    for (const t of a.titles) allTitles.add(t);
+  }
+  const launchRows = getTitleLaunchDates(db, [...allTitles]);
+  const titleLaunchDates: Record<string, string | null> = {};
+  for (const r of launchRows) {
+    titleLaunchDates[r.title] = r.launch_date;
+  }
+
   return {
     error: null,
-    data: { monthly_shares: monthlyShares, hhi_trend: hhiTrend, prolific_authors: prolificAuthors.slice(0, 20), top_publishers: topPublishers, period_months: months },
+    data: { monthly_shares: monthlyShares, hhi_trend: hhiTrend, prolific_authors: prolificAuthors.slice(0, 20), top_publishers: topPublishers, title_launch_dates: titleLaunchDates, period_months: months },
   };
 }
 
@@ -497,6 +517,32 @@ export function analyzeSeasonality(db: Database, months = 12): AnalysisResult<an
   // 월별 랭킹 작품수
   const monthlyRanking = getMonthlyRankingCounts(db, cutoff);
 
+  // 요일별 플랫폼·장르 상세
+  const detailRows = getDayOfWeekRankingDetail(db, cutoff);
+  const dowDetailMap: Record<number, Record<string, Record<string, number>>> = {};
+  for (const r of detailRows) {
+    const dowIdx = parseInt(r.dow);
+    const koreanIdx = (dowIdx - 1 + 7) % 7;
+    if (!dowDetailMap[koreanIdx]) dowDetailMap[koreanIdx] = {};
+    const platform = r.platform || '기타';
+    if (!dowDetailMap[koreanIdx][platform]) dowDetailMap[koreanIdx][platform] = {};
+    const genre = r.genre || '기타';
+    dowDetailMap[koreanIdx][platform][genre] = (dowDetailMap[koreanIdx][platform][genre] || 0) + 1;
+  }
+
+  const dayOfWeekDetail = DAY_NAMES.map((day, i) => {
+    const platforms: Record<string, { total: number; genres: { genre: string; count: number; share: number }[] }> = {};
+    const platData = dowDetailMap[i] || {};
+    for (const [platform, genreCounts] of Object.entries(platData)) {
+      const total = Object.values(genreCounts).reduce((s, v) => s + v, 0);
+      const genres = Object.entries(genreCounts)
+        .map(([genre, count]) => ({ genre, count, share: total > 0 ? Math.round(count / total * 1000) / 10 : 0 }))
+        .sort((a, b) => b.count - a.count);
+      platforms[platform] = { total, genres };
+    }
+    return { day, day_index: i, platforms };
+  });
+
   if (dowRows.length === 0 && monthlyStats.length === 0) {
     return { error: `최근 ${months}개월 데이터가 없습니다.`, data: null };
   }
@@ -504,7 +550,7 @@ export function analyzeSeasonality(db: Database, months = 12): AnalysisResult<an
   return {
     error: null,
     data: {
-      day_of_week: dayOfWeek, monthly_volume: monthlyVolume,
+      day_of_week: dayOfWeek, day_of_week_detail: dayOfWeekDetail, monthly_volume: monthlyVolume,
       quarterly_growth: quarterlyGrowth, monthly_ranking: monthlyRanking,
       period_months: months,
     },

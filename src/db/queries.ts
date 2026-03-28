@@ -590,6 +590,37 @@ export function getMonthlyRankingCounts(
   );
 }
 
+/** 롱텀: 요일별 랭킹 상세 (플랫폼·장르 포함) */
+export function getDayOfWeekRankingDetail(
+  db: Database,
+  sinceDate: string,
+): Array<{ dow: string; ranking_date: string; platform: string; genre: string }> {
+  return queryAll<{ dow: string; ranking_date: string; platform: string; genre: string }>(
+    db,
+    `SELECT strftime('%w', ranking_date) AS dow, ranking_date,
+            COALESCE(platform, '') as platform, COALESCE(genre, '') as genre
+     FROM daily_rankings
+     WHERE ranking_date >= ?
+       AND ranking_type NOT IN ('rookie','new_novel_today','genre_heroism','genre_fantasy','genre_fusion','genre_game','genre_newfantasy','genre_history')`,
+    [sinceDate],
+  );
+}
+
+/** 롱텀: 제목→launch_date 매핑 */
+export function getTitleLaunchDates(
+  db: Database,
+  titles: string[],
+): Array<{ title: string; launch_date: string | null }> {
+  if (titles.length === 0) return [];
+  const placeholders = titles.map(() => '?').join(',');
+  return queryAll<{ title: string; launch_date: string | null }>(
+    db,
+    `SELECT title, launch_date FROM management_novels
+     WHERE title IN (${placeholders})`,
+    titles,
+  );
+}
+
 /** 롱텀: 키워드 트렌드용 월별 제목+순위 */
 export function getMonthlyTitlesWithRank(
   db: Database,
