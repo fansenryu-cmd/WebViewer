@@ -1,13 +1,171 @@
 <!DOCTYPE html>
 <html lang="ko">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/novelforge-pro/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NovelForge Pro - Web Viewer</title>
-  </head>
-  <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Phantarium 웹뷰어</title>
+<style>
+:root{--ink:#6D56D0;--ink2:#4B3AA6;--bg:#F7F5FA;--card:#fff;--line:#EBE6F2;
+--t1:#1B1826;--t2:#5D566E;--t3:#857F96;--up:#0E9F6E;--down:#DC2626}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+background:var(--bg);color:var(--t1);line-height:1.5}
+.wrap{max-width:1060px;margin:0 auto;padding:28px 18px 60px}
+header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+h1{font-size:22px;color:var(--ink2)}
+.meta{color:var(--t3);font-size:12.5px}
+h2{font-size:15.5px;margin:26px 0 10px;color:var(--t1)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+padding:14px 16px;opacity:0;transform:translateY(8px);
+animation:in .5s ease forwards}
+@keyframes in{to{opacity:1;transform:none}}
+.card h3{font-size:13.5px;color:var(--ink2);margin-bottom:8px}
+table{width:100%;border-collapse:collapse;font-size:12.8px}
+td,th{padding:3.5px 4px;text-align:left;vertical-align:top}
+td.r{text-align:right;color:var(--t3);white-space:nowrap}
+.d-up{color:var(--up);font-weight:700}.d-dn{color:var(--down);font-weight:700}
+.d-new{color:var(--ink);font-weight:700;font-size:11px}
+.bar{height:9px;border-radius:5px;background:var(--ink);opacity:.85;
+transform-origin:left;animation:grow .8s ease forwards;transform:scaleX(0)}
+@keyframes grow{to{transform:scaleX(1)}}
+.kpis{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 2px}
+.kpi{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--ink);
+border-radius:10px;padding:10px 18px;min-width:140px}
+.kpi b{font-size:20px;color:var(--ink2)}
+.kpi span{display:block;color:var(--t3);font-size:11.5px}
+.news a{color:var(--ink2);text-decoration:none;font-size:13px}
+.news a:hover{text-decoration:underline}
+.news li{margin:6px 0;list-style:none}
+.news .nm{color:var(--t3);font-size:11.5px}
+.gate{max-width:430px;margin:14vh auto;text-align:center;background:var(--card);
+border:1px solid var(--line);border-radius:14px;padding:36px 28px}
+.gate h1{margin-bottom:10px}.gate p{color:var(--t2);font-size:13.5px}
+.month{margin:10px 0 4px;font-size:12px;color:var(--t3)}
+.gline{display:flex;align-items:center;gap:8px;font-size:12.3px;margin:2.5px 0}
+.gname{width:118px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gpct{width:46px;text-align:right;color:var(--t3)}
+footer{margin-top:44px;color:var(--t3);font-size:11.5px;text-align:center}
+</style>
+</head>
+<body>
+<div id="app"><div class="gate"><h1>Phantarium 웹뷰어</h1><p>불러오는 중…</p></div></div>
+<script>
+const API = "https://api.phantarium.co.kr/viewer/data";
+const tok = new URLSearchParams(location.search).get("t") || "";
+const app = document.getElementById("app");
+
+function gate(msg){
+  app.innerHTML = `<div class="gate"><h1>Phantarium 웹뷰어</h1><p>${msg}</p>
+  <p style="margin-top:14px;color:#857F96;font-size:12px">접속 주소(토큰 포함)는
+  Phantarium 프로그램의 [웹뷰어 발행]에서 받을 수 있습니다.</p></div>`;
+}
+function esc(s){const d=document.createElement("div");d.textContent=s??"";return d.innerHTML;}
+function delta(d){
+  if(d===null||d===undefined) return '<span class="d-new">NEW</span>';
+  if(d>0) return `<span class="d-up">▲${d}</span>`;
+  if(d<0) return `<span class="d-dn">▼${-d}</span>`;
+  return '<span style="color:#857F96">—</span>';
+}
+
+async function main(){
+  if(!tok){ gate("접속 토큰이 없습니다."); return; }
+  let r;
+  try{ r = await fetch(`${API}?t=${encodeURIComponent(tok)}`); }
+  catch(e){ gate("서버에 연결할 수 없습니다."); return; }
+  if(r.status===403){ gate("토큰이 올바르지 않습니다."); return; }
+  if(r.status===404){ gate("아직 발행된 스냅샷이 없습니다 — 프로그램에서 [웹뷰어 발행]을 먼저 실행하세요."); return; }
+  if(!r.ok){ gate(`오류 (${r.status})`); return; }
+  render(await r.json());
+}
+
+function render(d){
+  let h = `<div class="wrap"><header><h1>📖 Phantarium 시장 웹뷰어</h1>
+  <span class="meta">발행 ${esc(d.generated_at||"")} · ${esc(d.source||"")}</span></header>`;
+
+  // KPI
+  const sv = d.survival||{}, pub = d.publishers||{};
+  h += `<div class="kpis">`;
+  if(d.today&&d.today.date) h+=`<div class="kpi"><b>${esc(d.today.date)}</b><span>최신 랭킹 일자</span></div>`;
+  if(sv.n_works) h+=`<div class="kpi"><b>${sv.median_days}일</b><span>랭킹 체류 중앙값 (90일, ${sv.n_works.toLocaleString()}작품)</span></div>`;
+  if(sv.n_works) h+=`<div class="kpi"><b>${sv.pct_over_7d}%</b><span>7일 이상 생존 비율</span></div>`;
+  if(pub.hhi) h+=`<div class="kpi"><b>${pub.hhi.toLocaleString()}</b><span>출판사 HHI (90일)</span></div>`;
+  h += `</div>`;
+
+  // 오늘 랭킹
+  const plats = (d.today&&d.today.platforms)||{};
+  const names = Object.keys(plats);
+  if(names.length){
+    h += `<h2>🏆 플랫폼별 랭킹 TOP 10 <span class="meta">(전일 대비 ▲▼)</span></h2><div class="cards">`;
+    let i=0;
+    for(const p of names){
+      h += `<div class="card" style="animation-delay:${(i++)*70}ms"><h3>${esc(p)}</h3><table>`;
+      for(const w of plats[p].slice(0,10)){
+        h += `<tr><td class="r">#${w.rank}</td><td>${delta(w.delta)}</td>
+        <td>${esc(w.title)}</td><td class="r">${esc(w.genre)}</td></tr>`;
+      }
+      h += `</table></div>`;
+    }
+    h += `</div>`;
+  }
+
+  // 장르 점유율
+  const gs = d.genre_share||[];
+  if(gs.length){
+    h += `<h2>📂 장르 점유율 추이 (월별 TOP)</h2><div class="cards">`;
+    gs.slice(-4).forEach((m,mi)=>{
+      h += `<div class="card" style="animation-delay:${mi*90}ms"><h3>${esc(m.month)}</h3>`;
+      const mx = Math.max(...m.genres.map(g=>g.pct),1);
+      for(const g of m.genres.slice(0,8)){
+        h += `<div class="gline"><span class="gname">${esc(g.genre)}</span>
+        <div style="flex:1"><div class="bar" style="width:${Math.round(g.pct/mx*100)}%"></div></div>
+        <span class="gpct">${g.pct}%</span></div>`;
+      }
+      h += `</div>`;
+    });
+    h += `</div>`;
+  }
+
+  // 출판사
+  if(pub.top&&pub.top.length){
+    h += `<h2>🏢 출판사 점유 TOP 10 <span class="meta">(최근 90일 랭킹 노출 작품 기준 · 총 ${pub.n_publishers}곳)</span></h2>
+    <div class="card" style="max-width:560px">`;
+    const mx = Math.max(...pub.top.map(p=>p.pct),1);
+    for(const p of pub.top){
+      h += `<div class="gline"><span class="gname">${esc(p.publisher)}</span>
+      <div style="flex:1"><div class="bar" style="width:${Math.round(p.pct/mx*100)}%"></div></div>
+      <span class="gpct">${p.pct}%</span></div>`;
+    }
+    h += `</div>`;
+  }
+
+  // 아카이브 카탈로그
+  const cat = d.catalog||[];
+  if(cat.length){
+    h += `<h2>🗂 웹소설 아카이브 — 전수 카탈로그</h2><div class="kpis">`;
+    for(const c of cat){
+      h += `<div class="kpi"><b>${c.works.toLocaleString()}</b>
+      <span>${esc(c.platform)} (출판사 확보 ${c.with_publisher.toLocaleString()})</span></div>`;
+    }
+    h += `</div>`;
+  }
+
+  // 뉴스
+  const news = d.news||[];
+  if(news.length){
+    h += `<h2>📰 웹소설 뉴스 (최근 ${news.length}건)</h2><div class="card"><ul class="news">`;
+    for(const n of news){
+      h += `<li><a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a>
+      <span class="nm"> ${esc(n.date)}${n.mentions?` · 언급: ${esc(n.mentions)}`:""}</span></li>`;
+    }
+    h += `</ul></div>`;
+  }
+
+  h += `<footer>Phantarium All-in-One 웹뷰어 — 토큰 보유자 전용 · 데이터는 발행 시점 스냅샷</footer></div>`;
+  app.innerHTML = h;
+}
+main();
+</script>
+</body>
 </html>
