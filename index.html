@@ -4,166 +4,402 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Phantarium 웹뷰어</title>
+<title>Phantarium 시장 웹뷰어</title>
 <style>
-:root{--ink:#6D56D0;--ink2:#4B3AA6;--bg:#F7F5FA;--card:#fff;--line:#EBE6F2;
---t1:#1B1826;--t2:#5D566E;--t3:#857F96;--up:#0E9F6E;--down:#DC2626}
+:root{
+  --ink:#6D56D0; --ink2:#4B3AA6; --bg:#0E0B1A; --bg2:#161228;
+  --card:#1C1733; --card2:#231C40; --line:#2E2750;
+  --t1:#F1EEFA; --t2:#B5ADD6; --t3:#7E76A0;
+  --up:#34D399; --down:#FB7185; --new:#A78BFA; --gold:#FBBF24;
+}
 *{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
 body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
-background:var(--bg);color:var(--t1);line-height:1.5}
-.wrap{max-width:1060px;margin:0 auto;padding:28px 18px 60px}
-header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
-h1{font-size:22px;color:var(--ink2)}
-.meta{color:var(--t3);font-size:12.5px}
-h2{font-size:15.5px;margin:26px 0 10px;color:var(--t1)}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
-padding:14px 16px;opacity:0;transform:translateY(8px);
-animation:in .5s ease forwards}
-@keyframes in{to{opacity:1;transform:none}}
-.card h3{font-size:13.5px;color:var(--ink2);margin-bottom:8px}
+  background:radial-gradient(1200px 600px at 50% -10%, #1d1640 0%, var(--bg) 60%);
+  color:var(--t1); line-height:1.55; min-height:100vh}
+.wrap{max-width:1120px;margin:0 auto;padding:0 18px 80px}
+a{color:inherit;text-decoration:none}
+
+/* 헤더 — 수집 입자 캔버스 */
+header{position:relative;height:148px;margin-bottom:6px;overflow:hidden;
+  border-bottom:1px solid var(--line)}
+#flow{position:absolute;inset:0;width:100%;height:100%}
+.head-in{position:relative;z-index:2;max-width:1120px;margin:0 auto;
+  padding:34px 18px 0;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.head-in h1{font-size:24px;font-weight:800;letter-spacing:-.5px;
+  background:linear-gradient(90deg,#C4B5FD,#818CF8);-webkit-background-clip:text;
+  background-clip:text;-webkit-text-fill-color:transparent}
+.head-in .meta{color:var(--t3);font-size:12.5px}
+.gate{max-width:440px;margin:16vh auto;text-align:center;background:var(--card);
+  border:1px solid var(--line);border-radius:16px;padding:40px 30px}
+.gate h1{font-size:21px;margin-bottom:12px;color:#C4B5FD}
+.gate p{color:var(--t2);font-size:13.5px}
+
+/* KPI */
+.kpis{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0 8px}
+.kpi{flex:1;min-width:150px;background:linear-gradient(160deg,var(--card2),var(--card));
+  border:1px solid var(--line);border-radius:14px;padding:14px 18px;position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;top:-1px;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--ink),transparent)}
+.kpi b{font-size:23px;font-weight:800;color:#fff;display:block}
+.kpi span{color:var(--t3);font-size:11.5px}
+
+h2{font-size:16px;font-weight:700;margin:34px 0 4px;display:flex;align-items:center;gap:8px}
+h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--ink);
+  box-shadow:0 0 12px var(--ink)}
+.help{color:var(--t3);font-size:12px;margin:0 0 12px;padding-left:16px;border-left:2px solid var(--line)}
+
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+
+/* 탭 */
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{padding:7px 16px;border-radius:9px;background:var(--card);border:1px solid var(--line);
+  color:var(--t2);font-size:13px;font-weight:700;cursor:pointer;transition:.2s}
+.tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 17px}
+.card h3{font-size:13.5px;color:#C4B5FD;margin-bottom:9px;font-weight:700}
 table{width:100%;border-collapse:collapse;font-size:12.8px}
-td,th{padding:3.5px 4px;text-align:left;vertical-align:top}
+td{padding:4px 4px;vertical-align:top;border-bottom:1px solid rgba(255,255,255,.03)}
 td.r{text-align:right;color:var(--t3);white-space:nowrap}
-.d-up{color:var(--up);font-weight:700}.d-dn{color:var(--down);font-weight:700}
-.d-new{color:var(--ink);font-weight:700;font-size:11px}
-.bar{height:9px;border-radius:5px;background:var(--ink);opacity:.85;
-transform-origin:left;animation:grow .8s ease forwards;transform:scaleX(0)}
-@keyframes grow{to{transform:scaleX(1)}}
-.kpis{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 2px}
-.kpi{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--ink);
-border-radius:10px;padding:10px 18px;min-width:140px}
-.kpi b{font-size:20px;color:var(--ink2)}
-.kpi span{display:block;color:var(--t3);font-size:11.5px}
-.news a{color:var(--ink2);text-decoration:none;font-size:13px}
-.news a:hover{text-decoration:underline}
-.news li{margin:6px 0;list-style:none}
-.news .nm{color:var(--t3);font-size:11.5px}
-.gate{max-width:430px;margin:14vh auto;text-align:center;background:var(--card);
-border:1px solid var(--line);border-radius:14px;padding:36px 28px}
-.gate h1{margin-bottom:10px}.gate p{color:var(--t2);font-size:13.5px}
-.month{margin:10px 0 4px;font-size:12px;color:var(--t3)}
-.gline{display:flex;align-items:center;gap:8px;font-size:12.3px;margin:2.5px 0}
-.gname{width:118px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gpct{width:46px;text-align:right;color:var(--t3)}
-footer{margin-top:44px;color:var(--t3);font-size:11.5px;text-align:center}
+.rk{font-variant-numeric:tabular-nums;color:var(--t3);width:26px}
+.dl{display:inline-block;min-width:30px;font-weight:700;font-size:11px}
+.d-up{color:var(--up)} .d-dn{color:var(--down)} .d-new{color:var(--new);font-size:10px}
+.d-fl{color:var(--t3)}
+.gn{color:var(--t3);font-size:11px}
+.tag{display:inline-block;font-size:10.5px;color:var(--t3)}
+
+/* 막대 */
+.bar-row{display:flex;align-items:center;gap:9px;font-size:12.3px;margin:3px 0}
+.bar-name{width:96px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-wrap{flex:1;height:9px;background:rgba(255,255,255,.05);border-radius:5px;overflow:hidden}
+.bar{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--ink2),var(--ink));
+  width:0;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.bar.up{background:linear-gradient(90deg,#059669,var(--up))}
+.bar.dn{background:linear-gradient(90deg,#9F1239,var(--down))}
+.bar-pct{width:50px;text-align:right;color:var(--t3);font-variant-numeric:tabular-nums}
+
+/* 먹 지형도 */
+.ink-box{position:relative;border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  background:#0B0817;height:420px}
+#ink{width:100%;height:100%;display:block}
+.ink-cap{position:absolute;left:14px;bottom:12px;color:var(--t3);font-size:11px;z-index:2}
+
+.month-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+@media(max-width:680px){.two{grid-template-columns:1fr}}
+footer{margin-top:50px;color:var(--t3);font-size:11.5px;text-align:center;
+  padding-top:20px;border-top:1px solid var(--line)}
+.pill{display:inline-block;padding:1px 7px;border-radius:6px;font-size:10.5px;font-weight:700}
+.pill.up{background:rgba(52,211,153,.15);color:var(--up)}
+.pill.dn{background:rgba(251,113,133,.15);color:var(--down)}
 </style>
 </head>
 <body>
-<div id="app"><div class="gate"><h1>Phantarium 웹뷰어</h1><p>불러오는 중…</p></div></div>
+<div id="app"><div class="gate"><h1>Phantarium 시장 웹뷰어</h1><p>불러오는 중…</p></div></div>
 <script>
-const API = "https://api.phantarium.co.kr/viewer/data";
-const tok = new URLSearchParams(location.search).get("t") || "";
-const app = document.getElementById("app");
-
-function gate(msg){
-  app.innerHTML = `<div class="gate"><h1>Phantarium 웹뷰어</h1><p>${msg}</p>
-  <p style="margin-top:14px;color:#857F96;font-size:12px">접속 주소(토큰 포함)는
-  Phantarium 프로그램의 [웹뷰어 발행]에서 받을 수 있습니다.</p></div>`;
-}
-function esc(s){const d=document.createElement("div");d.textContent=s??"";return d.innerHTML;}
+const API="https://api.phantarium.co.kr/viewer/data";
+const tok=new URLSearchParams(location.search).get("t")||"";
+const app=document.getElementById("app");
+const esc=s=>{const d=document.createElement("div");d.textContent=s??"";return d.innerHTML};
+function gate(m){app.innerHTML=`<div class="gate"><h1>Phantarium 시장 웹뷰어</h1><p>${m}</p>
+  <p style="margin-top:14px;color:#7E76A0;font-size:12px">접속 주소(토큰 포함)는 Phantarium 프로그램의 [웹뷰어 발행]에서 받을 수 있습니다.</p></div>`}
 function delta(d){
-  if(d===null||d===undefined) return '<span class="d-new">NEW</span>';
-  if(d>0) return `<span class="d-up">▲${d}</span>`;
-  if(d<0) return `<span class="d-dn">▼${-d}</span>`;
-  return '<span style="color:#857F96">—</span>';
-}
+  if(d===null||d===undefined)return '<span class="dl d-new">NEW</span>';
+  if(d>0)return `<span class="dl d-up">▲${d}</span>`;
+  if(d<0)return `<span class="dl d-dn">▼${-d}</span>`;
+  return '<span class="dl d-fl">—</span>';}
 
 async function main(){
-  if(!tok){ gate("접속 토큰이 없습니다."); return; }
-  let r;
-  try{ r = await fetch(`${API}?t=${encodeURIComponent(tok)}`); }
-  catch(e){ gate("서버에 연결할 수 없습니다."); return; }
-  if(r.status===403){ gate("토큰이 올바르지 않습니다."); return; }
-  if(r.status===404){ gate("아직 발행된 스냅샷이 없습니다 — 프로그램에서 [웹뷰어 발행]을 먼저 실행하세요."); return; }
-  if(!r.ok){ gate(`오류 (${r.status})`); return; }
+  if(!tok){gate("접속 토큰이 없습니다.");return;}
+  let r;try{r=await fetch(`${API}?t=${encodeURIComponent(tok)}`);}
+  catch(e){gate("서버에 연결할 수 없습니다.");return;}
+  if(r.status===403){gate("토큰이 올바르지 않습니다.");return;}
+  if(r.status===404){gate("아직 발행된 스냅샷이 없습니다 — 프로그램에서 [웹뷰어 발행]을 먼저 실행하세요.");return;}
+  if(!r.ok){gate(`오류 (${r.status})`);return;}
   render(await r.json());
 }
 
 function render(d){
-  let h = `<div class="wrap"><header><h1>📖 Phantarium 시장 웹뷰어</h1>
-  <span class="meta">발행 ${esc(d.generated_at||"")} · ${esc(d.source||"")}</span></header>`;
+  const H=d.help||{};
+  const helpLine=k=>H[k]?`<p class="help">${esc(H[k])}</p>`:"";
+  let h=`<header><canvas id="flow"></canvas><div class="head-in">
+    <h1>📖 Phantarium 시장 웹뷰어</h1>
+    <span class="meta">발행 ${esc(d.generated_at||"")} · 외근 직원 전용 · 발행 시점 스냅샷</span>
+  </div></header><div class="wrap">`;
 
   // KPI
-  const sv = d.survival||{}, pub = d.publishers||{};
-  h += `<div class="kpis">`;
-  if(d.today&&d.today.date) h+=`<div class="kpi"><b>${esc(d.today.date)}</b><span>최신 랭킹 일자</span></div>`;
-  if(sv.n_works) h+=`<div class="kpi"><b>${sv.median_days}일</b><span>랭킹 체류 중앙값 (90일, ${sv.n_works.toLocaleString()}작품)</span></div>`;
-  if(sv.n_works) h+=`<div class="kpi"><b>${sv.pct_over_7d}%</b><span>7일 이상 생존 비율</span></div>`;
-  if(pub.hhi) h+=`<div class="kpi"><b>${pub.hhi.toLocaleString()}</b><span>출판사 HHI (90일)</span></div>`;
-  h += `</div>`;
+  const di=d.daily||{}, fs=d.free_serial||{};
+  const nPlat=Object.keys(di.platforms||{}).length;
+  const nKw=(d.keywords||[]).length;
+  h+=`<div class="kpis">
+    <div class="kpi"><b data-num="${nPlat}">0</b><span>추적 플랫폼 (${esc(di.date||"")})</span></div>
+    <div class="kpi"><b data-num="${(fs.works||[]).length}">0</b><span>금주 무연시 신작 (${esc(fs.date||"")})</span></div>
+    <div class="kpi"><b data-num="${nKw}">0</b><span>시장 키워드 (TF-IDF)</span></div>
+    <div class="kpi"><b data-num="${(d.genre_perf||[]).length}">0</b><span>단일 장르 성과 추적</span></div>
+  </div>`;
 
-  // 오늘 랭킹
-  const plats = (d.today&&d.today.platforms)||{};
-  const names = Object.keys(plats);
-  if(names.length){
-    h += `<h2>🏆 플랫폼별 랭킹 TOP 10 <span class="meta">(전일 대비 ▲▼)</span></h2><div class="cards">`;
-    let i=0;
-    for(const p of names){
-      h += `<div class="card" style="animation-delay:${(i++)*70}ms"><h3>${esc(p)}</h3><table>`;
-      for(const w of plats[p].slice(0,10)){
-        h += `<tr><td class="r">#${w.rank}</td><td>${delta(w.delta)}</td>
-        <td>${esc(w.title)}</td><td class="r">${esc(w.genre)}</td></tr>`;
-      }
-      h += `</table></div>`;
-    }
-    h += `</div>`;
+  // 랭킹 추이 탭
+  h+=`<h2><span class="dot"></span>플랫폼 랭킹 추이</h2>${helpLine("weekly")}
+    <div class="tabs" id="rk-tabs">
+      <div class="tab on" data-rk="daily">일간 (전일 대비)</div>
+      <div class="tab" data-rk="weekly">주간 (7일)</div>
+      <div class="tab" data-rk="monthly">월간 (30일)</div>
+    </div><div id="rk-body"></div>`;
+
+  // 무연시
+  if((fs.works||[]).length){
+    h+=`<h2><span class="dot"></span>금주 네이버 무료연재 (무연시)</h2>${helpLine("free_serial")}
+      <div class="card"><h3>${esc(fs.date||"")} 화요일 오픈 · 초기 반응순</h3><table>`;
+    fs.works.slice().sort((a,b)=>b.views-a.views).forEach((w,i)=>{
+      h+=`<tr><td class="rk">${i+1}</td><td>${esc(w.title)}<span class="gn"> · ${esc(w.author)}</span></td>
+        <td class="r">${(w.views||0).toLocaleString()} 조회</td></tr>`;});
+    h+=`</table></div>`;
   }
 
-  // 장르 점유율
-  const gs = d.genre_share||[];
+  // 소재 지형도 (먹) — 키워드
+  if((d.keywords||[]).length){
+    h+=`<h2><span class="dot"></span>시장 키워드 지형도</h2>${helpLine("keywords")}
+      <div class="ink-box"><canvas id="ink"></canvas>
+      <div class="ink-cap">수면 위에 풀어놓은 먹처럼 — 큰 덩어리일수록 시장에서 변별력 큰 키워드. 천천히 번지고 섞이다 옅어집니다.</div></div>`;
+  }
+
+  // 부상/쇠퇴 소재
+  const eco=d.ecosystem||{};
+  if((eco.rising||[]).length||(eco.declining||[]).length){
+    h+=`<h2><span class="dot"></span>부상·쇠퇴 소재</h2>${helpLine("ecosystem")}<div class="two">
+      <div class="card"><h3>📈 부상 중</h3>${(eco.rising||[]).map(r=>
+        `<div class="bar-row"><span class="bar-name">${esc(r.genre)}</span>
+         <span class="pill up">+${r.change}%</span>
+         <span class="bar-pct">${r.recent}%</span></div>`).join("")||'<span class="gn">데이터 없음</span>'}</div>
+      <div class="card"><h3>📉 쇠퇴 중</h3>${(eco.declining||[]).map(r=>
+        `<div class="bar-row"><span class="bar-name">${esc(r.genre)}</span>
+         <span class="pill dn">${r.change}%</span>
+         <span class="bar-pct">${r.recent}%</span></div>`).join("")||'<span class="gn">데이터 없음</span>'}</div></div>`;
+  }
+
+  // 장르 점유율 추이
+  const gs=d.genre_share||[];
   if(gs.length){
-    h += `<h2>📂 장르 점유율 추이 (월별 TOP)</h2><div class="cards">`;
-    gs.slice(-4).forEach((m,mi)=>{
-      h += `<div class="card" style="animation-delay:${mi*90}ms"><h3>${esc(m.month)}</h3>`;
-      const mx = Math.max(...m.genres.map(g=>g.pct),1);
-      for(const g of m.genres.slice(0,8)){
-        h += `<div class="gline"><span class="gname">${esc(g.genre)}</span>
-        <div style="flex:1"><div class="bar" style="width:${Math.round(g.pct/mx*100)}%"></div></div>
-        <span class="gpct">${g.pct}%</span></div>`;
-      }
-      h += `</div>`;
+    h+=`<h2><span class="dot"></span>장르 점유율 추이</h2>${helpLine("genre_share")}<div class="month-grid">`;
+    gs.slice(-4).forEach(m=>{
+      const mx=Math.max(...m.genres.map(g=>g.pct),1);
+      h+=`<div class="card"><h3>${esc(m.month)}</h3>${m.genres.slice(0,7).map(g=>
+        `<div class="bar-row"><span class="bar-name">${esc(g.genre)}</span>
+         <div class="bar-wrap"><div class="bar" data-w="${Math.round(g.pct/mx*100)}"></div></div>
+         <span class="bar-pct">${g.pct}%</span></div>`).join("")}</div>`;});
+    h+=`</div>`;
+  }
+
+  // 장르 성과
+  const gp=d.genre_perf||[];
+  if(gp.length){
+    const mx=Math.max(...gp.map(g=>g.mean),1);
+    h+=`<h2><span class="dot"></span>장르별 평균 성과</h2>${helpLine("genre_perf")}
+      <div class="card" style="max-width:580px">${gp.map(g=>
+      `<div class="bar-row"><span class="bar-name">${esc(g.genre)}</span>
+       <div class="bar-wrap"><div class="bar" data-w="${Math.round(g.mean/mx*100)}"></div></div>
+       <span class="bar-pct">${(g.mean>=10000?(g.mean/10000).toFixed(0)+'만':Math.round(g.mean))}</span>
+       <span class="tag">n=${g.n}</span></div>`).join("")}</div>`;
+  }
+
+  // 전환 프로모션
+  const cv=d.conversion||[];
+  if(cv.length){
+    h+=`<h2><span class="dot"></span>전환 프로모션 대기 작품</h2>${helpLine("conversion")}
+      <div class="card"><table><tr><td class="gn">작품</td><td class="r gn">일성장</td>
+      <td class="r gn">연독률</td><td class="r gn">전환 기대</td></tr>${cv.map(c=>
+      `<tr><td>${esc(c.title)}</td><td class="r">${(c.growth||0).toLocaleString()}</td>
+       <td class="r">${c.rtr}%</td><td class="r" style="color:#C4B5FD">${c.rate}%</td></tr>`).join("")}</table></div>`;
+  }
+
+  // 활발한 출판사
+  const pa=d.publishers_active||{};
+  if((pa.this_year||[]).length){
+    const mx1=Math.max(...(pa.this_year||[]).map(p=>p.works),1);
+    const mx2=Math.max(...(pa.three_year||[]).map(p=>p.works),1);
+    h+=`<h2><span class="dot"></span>활발한 출판사</h2>${helpLine("publishers_active")}<div class="two">
+      <div class="card"><h3>🔥 올해(${esc(String(pa.year||""))}) 최다 발행</h3>${(pa.this_year||[]).map(p=>
+        `<div class="bar-row"><span class="bar-name">${esc(p.publisher)}</span>
+         <div class="bar-wrap"><div class="bar up" data-w="${Math.round(p.works/mx1*100)}"></div></div>
+         <span class="bar-pct">${p.works}종</span></div>`).join("")}</div>
+      <div class="card"><h3>🏛 최근 3년 발행 종수</h3>${(pa.three_year||[]).map(p=>
+        `<div class="bar-row"><span class="bar-name">${esc(p.publisher)}</span>
+         <div class="bar-wrap"><div class="bar" data-w="${Math.round(p.works/mx2*100)}"></div></div>
+         <span class="bar-pct">${p.works}종</span></div>`).join("")}</div></div>`;
+  }
+
+  h+=`<footer>Phantarium All-in-One 웹뷰어 · 토큰 보유자 전용<br>세부 데이터는 프로그램에서 — 이 페이지는 시장 동향 요약입니다.</footer></div>`;
+  app.innerHTML=h;
+
+  buildRanking(d, helpLine);
+  setupReveal();
+  countUp();
+  startFlow();
+  if((d.keywords||[]).length) startInk(d.keywords);
+}
+
+// ── 랭킹 탭 렌더 ──
+function buildRanking(d, helpLine){
+  const body=document.getElementById("rk-body");
+  const render=mode=>{
+    let data, isDaily=mode==="daily";
+    if(isDaily) data=(d.daily||{}).platforms||{};
+    else data=d[mode]||{};
+    const names=Object.keys(data);
+    let html=`<div class="cards">`;
+    names.forEach((p,i)=>{
+      const items=data[p]||[];
+      html+=`<div class="card reveal" style="transition-delay:${i*45}ms"><h3>${esc(p)}</h3><table>`;
+      items.slice(0,10).forEach((w,idx)=>{
+        if(isDaily){
+          html+=`<tr><td class="rk">#${w.rank}</td><td>${delta(w.delta)}</td>
+            <td>${esc(w.title)}</td><td class="r">${esc(w.genre)}</td></tr>`;
+        }else{
+          html+=`<tr><td class="rk">#${idx+1}</td><td>${esc(w.title)}</td>
+            <td class="r">최고 #${w.best}</td><td class="r">${w.days}일</td></tr>`;
+        }
+      });
+      html+=`</table></div>`;
     });
-    h += `</div>`;
-  }
+    html+=`</div>`;
+    body.innerHTML=html;
+    setupReveal();
+  };
+  render("daily");
+  document.querySelectorAll("#rk-tabs .tab").forEach(t=>{
+    t.onclick=()=>{
+      document.querySelectorAll("#rk-tabs .tab").forEach(x=>x.classList.remove("on"));
+      t.classList.add("on");
+      const help=document.querySelector("h2 + .help");
+      render(t.dataset.rk);
+    };
+  });
+}
 
-  // 출판사
-  if(pub.top&&pub.top.length){
-    h += `<h2>🏢 출판사 점유 TOP 10 <span class="meta">(최근 90일 랭킹 노출 작품 기준 · 총 ${pub.n_publishers}곳)</span></h2>
-    <div class="card" style="max-width:560px">`;
-    const mx = Math.max(...pub.top.map(p=>p.pct),1);
-    for(const p of pub.top){
-      h += `<div class="gline"><span class="gname">${esc(p.publisher)}</span>
-      <div style="flex:1"><div class="bar" style="width:${Math.round(p.pct/mx*100)}%"></div></div>
-      <span class="gpct">${p.pct}%</span></div>`;
-    }
-    h += `</div>`;
-  }
+// ── 등장 애니메이션 (IntersectionObserver) ──
+function setupReveal(){
+  const io=new IntersectionObserver(es=>{
+    es.forEach(e=>{if(e.isIntersecting){
+      e.target.classList.add("in");
+      e.target.querySelectorAll?.(".bar").forEach(b=>{
+        const w=b.dataset.w; if(w!==undefined) requestAnimationFrame(()=>b.style.width=w+"%");
+      });
+      io.unobserve(e.target);
+    }});
+  },{threshold:.12});
+  document.querySelectorAll(".reveal:not(.in)").forEach(el=>io.observe(el));
+  // 막대는 reveal 밖에도 있으니 별도 관찰
+  const io2=new IntersectionObserver(es=>{
+    es.forEach(e=>{if(e.isIntersecting){
+      e.target.style.width=(e.target.dataset.w||0)+"%"; io2.unobserve(e.target);}});
+  },{threshold:.1});
+  document.querySelectorAll(".bar[data-w]").forEach(b=>{if(!b.style.width)io2.observe(b);});
+}
 
-  // 아카이브 카탈로그
-  const cat = d.catalog||[];
-  if(cat.length){
-    h += `<h2>🗂 웹소설 아카이브 — 전수 카탈로그</h2><div class="kpis">`;
-    for(const c of cat){
-      h += `<div class="kpi"><b>${c.works.toLocaleString()}</b>
-      <span>${esc(c.platform)} (출판사 확보 ${c.with_publisher.toLocaleString()})</span></div>`;
-    }
-    h += `</div>`;
-  }
+// ── KPI 카운트업 ──
+function countUp(){
+  document.querySelectorAll("[data-num]").forEach(el=>{
+    const end=+el.dataset.num||0; if(end<=0){el.textContent="0";return;}
+    const t0=performance.now(), dur=900;
+    const step=t=>{const k=Math.min(1,(t-t0)/dur);
+      el.textContent=Math.round(end*(1-Math.pow(1-k,3))).toLocaleString();
+      if(k<1)requestAnimationFrame(step);};
+    requestAnimationFrame(step);
+  });
+}
 
-  // 뉴스
-  const news = d.news||[];
-  if(news.length){
-    h += `<h2>📰 웹소설 뉴스 (최근 ${news.length}건)</h2><div class="card"><ul class="news">`;
-    for(const n of news){
-      h += `<li><a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a>
-      <span class="nm"> ${esc(n.date)}${n.mentions?` · 언급: ${esc(n.mentions)}`:""}</span></li>`;
-    }
-    h += `</ul></div>`;
+// ── 헤더 수집 입자 ──
+function startFlow(){
+  const c=document.getElementById("flow"); if(!c)return;
+  const ctx=c.getContext("2d"); let W,Hh,parts=[],raf,vis=true;
+  const COLORS=["#03C75A","#FFB400","#6D56D0","#FB7185"];
+  function size(){const r=c.getBoundingClientRect();W=c.width=r.width*devicePixelRatio;
+    Hh=c.height=r.height*devicePixelRatio;ctx.scale(devicePixelRatio,devicePixelRatio);}
+  size();
+  const w=()=>W/devicePixelRatio, hh=()=>Hh/devicePixelRatio;
+  function tick(){
+    ctx.clearRect(0,0,w(),hh());
+    if(parts.length<46&&Math.random()<.4)parts.push({
+      x:-10,y:Math.random()*hh(),s:1+Math.random()*2.4,
+      vx:.6+Math.random()*1.6,c:COLORS[(Math.random()*COLORS.length)|0],a:1});
+    parts.forEach(p=>{p.x+=p.vx;p.a=Math.max(0,1-p.x/w());
+      ctx.beginPath();ctx.fillStyle=p.c;ctx.globalAlpha=p.a*.7;
+      ctx.arc(p.x,p.y,p.s,0,7);ctx.fill();});
+    ctx.globalAlpha=1;
+    parts=parts.filter(p=>p.x<w()+10);
+    raf=requestAnimationFrame(tick);
   }
+  tick();
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden){cancelAnimationFrame(raf);}else{tick();}});
+  addEventListener("resize",size);
+}
 
-  h += `<footer>Phantarium All-in-One 웹뷰어 — 토큰 보유자 전용 · 데이터는 발행 시점 스냅샷</footer></div>`;
-  app.innerHTML = h;
+// ── 수면 위 먹 지형도 (suminagashi) ──
+function startInk(keywords){
+  const c=document.getElementById("ink"); if(!c)return;
+  const ctx=c.getContext("2d"); let W,Hh,raf;
+  function size(){const r=c.getBoundingClientRect();W=c.width=r.width*devicePixelRatio;
+    Hh=c.height=r.height*devicePixelRatio;}
+  size();
+  const w=()=>W/devicePixelRatio, hh=()=>Hh/devicePixelRatio;
+  const PAL=[["#6D56D0","#A78BFA"],["#2563EB","#60A5FA"],["#0EA5E9","#67E8F9"],
+             ["#DB2777","#F9A8D4"],["#059669","#6EE7B7"],["#D97706","#FCD34D"]];
+  const maxS=Math.max(...keywords.map(k=>k.score),.001);
+  // 점진 등장: 키워드를 시간차로 떨군다
+  let blobs=[], t=0, idx=0, nextDrop=0;
+  function drop(){
+    if(idx>=keywords.length||idx>=26)return;
+    const k=keywords[idx++];
+    const rad=18+Math.pow(k.score/maxS,.6)*64;
+    const pal=PAL[(Math.random()*PAL.length)|0];
+    blobs.push({x:rad+Math.random()*(w()-rad*2),y:rad+Math.random()*(hh()-rad*2),
+      r:0,tr:rad,word:k.word,c1:pal[0],c2:pal[1],
+      born:t,wob:Math.random()*6.28,vx:(Math.random()-.5)*.16,vy:(Math.random()-.5)*.16,life:1});
+    nextDrop=t+30+Math.random()*40;
+  }
+  function tick(){
+    t++;
+    // 잔잔한 수면 배경
+    ctx.fillStyle="#0B0817";ctx.fillRect(0,0,w(),hh());
+    if(t>=nextDrop)drop();
+    blobs.forEach(b=>{
+      b.r+=(b.tr-b.r)*.04;                 // 번짐
+      b.x+=b.vx;b.y+=b.vy;                   // 유체 표류
+      b.wob+=.02;
+      if(b.x<b.r){b.vx=Math.abs(b.vx)} if(b.x>w()-b.r){b.vx=-Math.abs(b.vx)}
+      if(b.y<b.r){b.vy=Math.abs(b.vy)} if(b.y>hh()-b.r){b.vy=-Math.abs(b.vy)}
+      const age=t-b.born;
+      if(age>520) b.life=Math.max(0,b.life-.004);  // 시간 경과로 옅어짐
+      const rr=b.r*(1+Math.sin(b.wob)*.04);
+      const g=ctx.createRadialGradient(b.x,b.y,rr*.1,b.x,b.y,rr);
+      g.addColorStop(0,b.c2);g.addColorStop(.55,b.c1);g.addColorStop(1,"rgba(11,8,23,0)");
+      ctx.globalAlpha=.62*b.life;
+      ctx.beginPath();ctx.fillStyle=g;ctx.arc(b.x,b.y,rr,0,7);ctx.fill();
+      // 키워드 라벨
+      ctx.globalAlpha=Math.min(1,b.r/b.tr)*b.life;
+      ctx.fillStyle="rgba(255,255,255,.92)";
+      ctx.font=`${Math.max(11,Math.min(20,rr*.42))}px Pretendard,sans-serif`;
+      ctx.textAlign="center";ctx.textBaseline="middle";
+      ctx.fillText(b.word,b.x,b.y);
+    });
+    ctx.globalAlpha=1;
+    // 모두 옅어지면 처음부터 (천천히 순환)
+    blobs=blobs.filter(b=>b.life>.02);
+    if(idx>=Math.min(26,keywords.length)&&blobs.length===0){idx=0;t=0;nextDrop=0;}
+    raf=requestAnimationFrame(tick);
+  }
+  // 화면에 보일 때만
+  const io=new IntersectionObserver(es=>{es.forEach(e=>{
+    if(e.isIntersecting){if(!raf)tick();}
+    else{cancelAnimationFrame(raf);raf=null;}});},{threshold:.05});
+  io.observe(c);
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden){cancelAnimationFrame(raf);raf=null;}});
+  addEventListener("resize",size);
 }
 main();
 </script>
